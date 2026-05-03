@@ -6,7 +6,7 @@
     "fullName": "thissa jana nayaka",
     "role": "tutor",
     "createdAt": "2026-05-01T16:53:58.604Z",
-    "updatedAt": "2026-05-02T13:44:39.631Z",
+    "updatedAt": "2026-05-03T11:52:33.279Z",
     "_id": "69f4daa6e5dd6722eabae509"
   },
   {
@@ -42,16 +42,6 @@
     "_id": "69f4e023e5dd6722eabae51a"
   },
   {
-    "id": "a42acd05-bdc8-4989-bb5f-47153b9d1116",
-    "email": "anurada@gmail.com",
-    "passwordHash": "$2a$10$PDsAceM7LOPTrpUwQpst1ewMBMdLRuHHgkRvHAjWFsNJ0nR1J4u56",
-    "fullName": "anurada",
-    "role": "tutor",
-    "createdAt": "2026-05-01T17:18:55.061Z",
-    "updatedAt": "2026-05-01T18:38:53.422Z",
-    "_id": "69f4e07fe5dd6722eabae51c"
-  },
-  {
     "id": "4e92c043-c22f-4778-a6cb-0291556e271f",
     "email": "charitha@gmail.com",
     "passwordHash": "$2a$10$Eu/ne0wbVPxLUvl3WBP79.0ZGad2q3TGGNjNtzF9tUuTihABpIWLO",
@@ -59,5 +49,25 @@
     "role": "tutor",
     "createdAt": "2026-05-01T18:10:29.012Z",
     "_id": "69f4ec95e5dd6722eabae52f"
+  },
+  {
+    "id": "82f498c7-640d-4d69-9814-55171be519a6",
+    "email": "achintha@gmail.com",
+    "passwordHash": "$2a$10$PhLpijyILPs4T8L6BqWzregZcbhfDqM0cTTIf81ZbtO4xUr/2BzyS",
+    "fullName": "Achintha",
+    "role": "tutor_pending",
+    "createdAt": "2026-05-03T09:59:26.807Z",
+    "updatedAt": "2026-05-03T10:09:14.813Z",
+    "_id": "69f71c7eeaf2a8c777c5d1f9"
+  },
+  {
+    "id": "63ad3522-e6a6-4c30-a9cb-e610195c9a84",
+    "email": "test@gmail.com",
+    "passwordHash": "$2a$10$sj0o8K/4RhuKX4Xrye3L2.fcZzVYJyv8R0D5zw3B7/oIaTjEXK.bK",
+    "fullName": "Test",
+    "role": "tutor_pending",
+    "createdAt": "2026-05-03T10:11:17.582Z",
+    "updatedAt": "2026-05-03T10:11:17.891Z",
+    "_id": "69f71f45eaf2a8c777c5d1fb"
   }
 ]

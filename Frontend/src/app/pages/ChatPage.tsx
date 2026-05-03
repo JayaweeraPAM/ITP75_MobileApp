@@ -90,8 +90,29 @@ export function ChatPage() {
     }
   }, [user, navigate, location.pathname]);
 
+  const fetchMessages = async (tid: string) => {
+    try {
+      const result = await chatApi.getMessages(tid);
+      const serverMsgs = result.messages || [];
+      setMessages((prev) => {
+        const serverIds = new Set(serverMsgs.map((m: any) => m.id));
+        const pendingOptimistic = prev.filter((opt: any) => {
+          if (!String(opt.id).includes('.')) return false; // Optimistic IDs match Math.random().toString() which has decimal point
+          const hasServerEquivalent = serverMsgs.some(
+            (sm: any) => sm.content === opt.content && sm.senderId === opt.senderId
+          );
+          return !hasServerEquivalent;
+        });
+        return [...serverMsgs, ...pendingOptimistic].sort(
+          (a: any, b: any) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+        );
+      });
+    } catch {}
+  };
+
   useEffect(() => {
     if (!user) return;
+    let pollInterval: any;
     const init = async () => {
       setLoading(true);
       let tid = threadIdParam;
@@ -106,8 +127,12 @@ export function ChatPage() {
       if (!tid) { setLoading(false); return; }
 
       try {
-        const result = await chatApi.getMessages(tid);
-        setMessages(result.messages || []);
+        await fetchMessages(tid);
+
+        pollInterval = setInterval(() => {
+          if (tid) fetchMessages(tid);
+        }, 3000);
+
         const threadsResult = await chatApi.getThreads();
         const thread = (threadsResult.threads || []).find((t: any) => t.id === tid);
         setOtherName(thread?.otherUser?.name || 'Chat');
@@ -141,7 +166,18 @@ export function ChatPage() {
           socket.emit('joinThread', { threadId: tid });
           socket.off('newMessage');
           socket.on('newMessage', ({ message }: { message: any }) => {
-            if (message.threadId === tid) setMessages((prev) => [...prev, message]);
+            if (message.threadId === tid) {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === message.id)) return prev;
+                const pendingOptimistic = prev.filter((opt: any) => {
+                  if (!String(opt.id).includes('.')) return true;
+                  return opt.content !== message.content || opt.senderId !== message.senderId;
+                });
+                return [...pendingOptimistic, message].sort(
+                  (a: any, b: any) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+                );
+              });
+            }
           });
         }
       } catch (err: any) {
@@ -150,7 +186,11 @@ export function ChatPage() {
       } finally { setLoading(false); }
     };
     init();
-    return () => { const socket = getSocket(); if (socket) socket.off('newMessage'); };
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+      const socket = getSocket();
+      if (socket) socket.off('newMessage');
+    };
   }, [threadIdParam, tutorId, user, navigate]);
 
   useEffect(() => {
@@ -174,6 +214,7 @@ export function ChatPage() {
     const socket = getSocket();
     if (socket && socket.connected) {
       socket.emit('sendMessage', { threadId: tid, content: content.trim() });
+      setTimeout(() => fetchMessages(tid), 400);
     } else {
       toast.error('Connection lost. Please refresh.');
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMessage.id));

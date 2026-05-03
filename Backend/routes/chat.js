@@ -285,3 +285,60 @@ chatRouter.get('/threads/:threadId/messages', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
+
+chatRouter.patch('/threads/:threadId/messages/:messageId', async (req, res) => {
+  try {
+    const { threadId, messageId } = req.params;
+    const { content } = req.body;
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Content required' });
+    }
+    const messages = await store.chatMessages.get();
+    const message = messages.find((m) => m.id === messageId && m.threadId === threadId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    if (message.senderId !== req.user.id) {
+      return res.status(403).json({ error: 'Only sender can edit' });
+    }
+    message.content = content.trim().slice(0, 2000);
+    message.isEdited = true;
+    message.editedAt = new Date().toISOString();
+    await store.chatMessages.updateOne(messageId, {
+      content: message.content,
+      isEdited: message.isEdited,
+      editedAt: message.editedAt
+    });
+
+    const io = req.app.get('io');
+    io?.to(`thread:${threadId}`).emit('messageEdited', { message });
+
+    res.json({ success: true, message });
+  } catch (err) {
+    console.error('Edit message error:', err);
+    res.status(500).json({ error: 'Failed to edit message' });
+  }
+});
+
+chatRouter.delete('/threads/:threadId/messages/:messageId', async (req, res) => {
+  try {
+    const { threadId, messageId } = req.params;
+    const messages = await store.chatMessages.get();
+    const msg = messages.find((m) => m.id === messageId && m.threadId === threadId);
+    if (!msg) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    if (msg.senderId !== req.user.id) {
+      return res.status(403).json({ error: 'Only sender can delete' });
+    }
+    await store.chatMessages.deleteOne(messageId);
+
+    const io = req.app.get('io');
+    io?.to(`thread:${threadId}`).emit('messageDeleted', { messageId });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete message error:', err);
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});

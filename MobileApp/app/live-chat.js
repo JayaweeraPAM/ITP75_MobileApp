@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
   BackHandler,
   Image,
   StatusBar,
@@ -41,6 +42,7 @@ function ChatScreen({ thread, myId, onBack }) {
   const socketSubRef = useRef(null);
   const typingStopTimerRef = useRef(null);
   const isTypingSentRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
   const fetchMessages = async () => {
     try {
@@ -50,15 +52,25 @@ function ChatScreen({ thread, myId, onBack }) {
         senderId: m.senderId,
         content: m.content,
         sentAt: m.sentAt,
+        isEdited: m.isEdited,
       }));
       setMessages((prev) => {
         const serverIds = new Set(serverMsgs.map((m) => m.id));
-        const pendingOptimistic = prev.filter((m) => m.id.startsWith('opt-') && !serverIds.has(m.id));
+        const pendingOptimistic = prev.filter((opt) => {
+          if (!opt.id.startsWith('opt-')) return false;
+          const hasServerEquivalent = serverMsgs.some(
+            (sm) => sm.content === opt.content && sm.senderId === opt.senderId
+          );
+          return !hasServerEquivalent;
+        });
         return [...serverMsgs, ...pendingOptimistic].sort(
           (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
         );
       });
-      setTimeout(() => listRef.current?.scrollToEnd?.({ animated: false }), 80);
+      if (!hasLoadedRef.current) {
+        setTimeout(() => listRef.current?.scrollToEnd?.({ animated: false }), 80);
+        hasLoadedRef.current = true;
+      }
     } catch {
       // ignore
     } finally {
@@ -66,13 +78,24 @@ function ChatScreen({ thread, myId, onBack }) {
     }
   };
 
+  const [editingMsgId, setEditingMsgId] = useState(null);
+  const [selectedMsg, setSelectedMsg] = useState(null);
+
   useEffect(() => {
     setLoading(true);
+    hasLoadedRef.current = false;
     fetchMessages();
+
+    // Regular WhatsApp-style background poll as a fallback for 100% reliable real-time updates
+    const pollInterval = setInterval(() => {
+      fetchMessages();
+    }, 3000);
 
     const token = context?.token || null;
     const socket = getSocket(token);
-    if (!socket) return;
+    if (!socket) {
+      return () => clearInterval(pollInterval);
+    }
 
     const onNewMessage = (payload) => {
       const msg = payload?.message;
@@ -82,12 +105,33 @@ function ChatScreen({ thread, myId, onBack }) {
         senderId: msg.senderId,
         content: msg.content,
         sentAt: msg.sentAt,
+        isEdited: msg.isEdited,
       };
       setMessages((prev) => {
         if (prev.some((m) => m.id === incoming.id)) return prev;
-        return [...prev, incoming].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+        const pendingOptimistic = prev.filter((opt) => {
+          if (!opt.id.startsWith('opt-')) return true;
+          return opt.content !== incoming.content || opt.senderId !== incoming.senderId;
+        });
+        return [...pendingOptimistic, incoming].sort(
+          (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+        );
       });
       setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 60);
+    };
+
+    const onMessageEdited = (payload) => {
+      const msg = payload?.message;
+      if (!msg || msg.threadId !== threadId) return;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msg.id ? { ...m, content: msg.content, isEdited: true } : m))
+      );
+    };
+
+    const onMessageDeleted = (payload) => {
+      const deletedId = payload?.messageId;
+      if (!deletedId) return;
+      setMessages((prev) => prev.filter((m) => m.id !== deletedId));
     };
 
     const onTypingStart = (payload) => {
@@ -104,6 +148,8 @@ function ChatScreen({ thread, myId, onBack }) {
 
     socket.emit('joinThread', { threadId });
     socket.on('newMessage', onNewMessage);
+    socket.on('messageEdited', onMessageEdited);
+    socket.on('messageDeleted', onMessageDeleted);
     socket.on('typingStart', onTypingStart);
     socket.on('typingStop', onTypingStop);
 
@@ -111,6 +157,8 @@ function ChatScreen({ thread, myId, onBack }) {
       off: () => {
         try {
           socket.off('newMessage', onNewMessage);
+          socket.off('messageEdited', onMessageEdited);
+          socket.off('messageDeleted', onMessageDeleted);
           socket.off('typingStart', onTypingStart);
           socket.off('typingStop', onTypingStop);
         } catch {}
@@ -118,6 +166,7 @@ function ChatScreen({ thread, myId, onBack }) {
     };
 
     return () => {
+      clearInterval(pollInterval);
       socketSubRef.current?.off?.();
       socketSubRef.current = null;
     };
@@ -160,23 +209,41 @@ function ChatScreen({ thread, myId, onBack }) {
     if (!text.trim() || sending) return;
     const msg = text.trim();
     setText('');
-    const optId = `opt-${Date.now()}`;
-    const optimistic = { id: optId, senderId: myId, content: msg, sentAt: new Date().toISOString() };
-    setMessages((prev) => [...prev, optimistic]);
-    setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 50);
-    try {
-      setSending(true);
-      const token = context?.token || null;
-      const socket = getSocket(token);
-      if (!socket) throw new Error('No socket connection');
-      socket.emit('typingStop', { threadId });
-      isTypingSentRef.current = false;
-      socket.emit('sendMessage', { threadId, content: msg });
-    } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== optId));
-      setText(msg);
-    } finally {
-      setSending(false);
+    const token = context?.token || null;
+    const socket = getSocket(token);
+    if (!socket) return;
+
+    if (editingMsgId) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === editingMsgId ? { ...m, content: msg, isEdited: true } : m))
+      );
+      try {
+        setSending(true);
+        socket.emit('editMessage', { threadId, messageId: editingMsgId, content: msg });
+        setTimeout(() => fetchMessages(), 400);
+      } catch (err) {
+        // ignore
+      } finally {
+        setSending(false);
+        setEditingMsgId(null);
+      }
+    } else {
+      const optId = `opt-${Date.now()}`;
+      const optimistic = { id: optId, senderId: myId, content: msg, sentAt: new Date().toISOString() };
+      setMessages((prev) => [...prev, optimistic]);
+      setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 50);
+      try {
+        setSending(true);
+        socket.emit('typingStop', { threadId });
+        isTypingSentRef.current = false;
+        socket.emit('sendMessage', { threadId, content: msg });
+        setTimeout(() => fetchMessages(), 400);
+      } catch {
+        setMessages((prev) => prev.filter((m) => m.id !== optId));
+        setText(msg);
+      } finally {
+        setSending(false);
+      }
     }
   };
 
@@ -252,16 +319,36 @@ function ChatScreen({ thread, myId, onBack }) {
                         <Text style={cs.msgAvatarChar}>{(otherName || '?').charAt(0)}</Text>
                       </View>
                     )}
-                    <View style={[cs.bubble, mine ? cs.bubbleMine : cs.bubbleTheirs]}>
-                      <Text style={[cs.bubbleText, mine && cs.bubbleTextMine]}>{item.content}</Text>
-                      <Text style={[cs.bubbleTime, mine && { color: 'rgba(200,196,255,0.6)' }]}>
-                        {new Date(item.sentAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ maxWidth: '80%', flexShrink: 1 }}
+                      onLongPress={() => {
+                        if (mine) {
+                          setSelectedMsg(item);
+                        }
+                      }}
+                    >
+                      <View style={[cs.bubble, mine ? cs.bubbleMine : cs.bubbleTheirs, { width: '100%' }]}>
+                        <Text style={[cs.bubbleText, mine && cs.bubbleTextMine]}>{item.content}</Text>
+                        <Text style={[cs.bubbleTime, mine && { color: 'rgba(200,196,255,0.6)' }]}>
+                          {item.isEdited ? 'Edited • ' : ''}
+                          {new Date(item.sentAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                   </View>
                 );
               }}
             />
+          )}
+
+          {editingMsgId && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 2 }}>
+              <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '600' }}>Editing message...</Text>
+              <TouchableOpacity onPress={() => { setEditingMsgId(null); setText(''); }}>
+                <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Input */}
@@ -270,7 +357,7 @@ function ChatScreen({ thread, myId, onBack }) {
               style={cs.input}
               value={text}
               onChangeText={setText}
-              placeholder="Type a message..."
+              placeholder={editingMsgId ? "Edit your message..." : "Type a message..."}
               placeholderTextColor="rgba(140,140,190,0.45)"
               multiline
               maxLength={1000}
@@ -293,6 +380,75 @@ function ChatScreen({ thread, myId, onBack }) {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={selectedMsg !== null}
+          onRequestClose={() => setSelectedMsg(null)}
+        >
+          <TouchableOpacity
+            style={cs.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setSelectedMsg(null)}
+          >
+            <View style={cs.modalSheet}>
+              <View style={cs.modalHandle} />
+              <Text style={cs.modalTitle}>Message Options</Text>
+              
+              <TouchableOpacity
+                style={cs.modalOption}
+                activeOpacity={0.75}
+                onPress={() => {
+                  if (selectedMsg) {
+                    setEditingMsgId(selectedMsg.id);
+                    setText(selectedMsg.content);
+                    setSelectedMsg(null);
+                  }
+                }}
+              >
+                <View style={[cs.modalOptionIcon, { backgroundColor: 'rgba(124,111,255,0.15)' }]}>
+                  <Text style={cs.modalEmoji}>✏️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={cs.modalOptionLabel}>Edit Message</Text>
+                  <Text style={cs.modalOptionDesc}>Modify the content of this message</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[cs.modalOption, { borderBottomWidth: 0 }]}
+                activeOpacity={0.75}
+                onPress={() => {
+                  if (selectedMsg) {
+                    const socket = getSocket(context?.token);
+                    if (socket) {
+                      socket.emit('deleteMessage', { threadId, messageId: selectedMsg.id });
+                    }
+                    setMessages((prev) => prev.filter((m) => m.id !== selectedMsg.id));
+                    setSelectedMsg(null);
+                  }
+                }}
+              >
+                <View style={[cs.modalOptionIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                  <Text style={cs.modalEmoji}>🗑️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[cs.modalOptionLabel, { color: '#ff4d4d' }]}>Delete Message</Text>
+                  <Text style={cs.modalOptionDesc}>This action cannot be undone</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={cs.modalCancelBtn}
+                activeOpacity={0.8}
+                onPress={() => setSelectedMsg(null)}
+              >
+                <Text style={cs.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </LinearGradient>
     </PremiumBlurWrapper>
   );
@@ -672,7 +828,7 @@ const cs = StyleSheet.create({
     marginBottom: 4,
   },
   msgAvatarChar: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
-  bubble: { maxWidth: '75%', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
+  bubble: { minWidth: 80, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, flexShrink: 1 },
   bubbleMine: { backgroundColor: '#7C6FFF', borderBottomRightRadius: 6 },
   bubbleTheirs: {
     backgroundColor: 'rgba(255,255,255,0.07)',
@@ -722,4 +878,28 @@ const cs = StyleSheet.create({
     paddingVertical: 8,
   },
   typingDots: { color: 'rgba(220,220,255,0.85)', fontSize: 13, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  modalSheet: {
+    backgroundColor: '#0d0920',
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(124,111,255,0.2)',
+    padding: 24,
+    paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  modalHandle: { display: 'none' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: 16, textAlign: 'center' },
+  modalOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  modalOptionIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  modalEmoji: { fontSize: 18 },
+  modalOptionLabel: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  modalOptionDesc: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  modalCancelBtn: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginTop: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  modalCancelText: { color: 'rgba(255,255,255,0.85)', fontSize: 15, fontWeight: '700' },
 });

@@ -528,6 +528,34 @@ io.on('connection', async (socket) => {
     socket.broadcast.to(`thread:${threadId}`).emit('newMessage', { message });
   });
 
+  socket.on('editMessage', async ({ threadId, messageId, content }) => {
+    if (!threadId || !messageId || !content || typeof content !== 'string') return;
+    const messages = await store.chatMessages.get();
+    const idx = messages.findIndex((m) => m.id === messageId && m.threadId === threadId);
+    if (idx === -1) return;
+    const msg = messages[idx];
+    if (msg.senderId !== socket.userId) return;
+    msg.content = content.trim().slice(0, 2000);
+    msg.isEdited = true;
+    msg.editedAt = new Date().toISOString();
+    await store.chatMessages.updateOne(messageId, {
+      content: msg.content,
+      isEdited: msg.isEdited,
+      editedAt: msg.editedAt
+    });
+    io.to(`thread:${threadId}`).emit('messageEdited', { message: msg });
+  });
+
+  socket.on('deleteMessage', async ({ threadId, messageId }) => {
+    if (!threadId || !messageId) return;
+    const messages = await store.chatMessages.get();
+    const msg = messages.find((m) => m.id === messageId && m.threadId === threadId);
+    if (!msg) return;
+    if (msg.senderId !== socket.userId) return;
+    await store.chatMessages.deleteOne(messageId);
+    io.to(`thread:${threadId}`).emit('messageDeleted', { messageId });
+  });
+
   socket.on('typingStart', async ({ threadId }) => {
     if (!threadId) return;
     const threads = await store.chatThreads.get();

@@ -195,6 +195,20 @@ export const store = {
       await db.collection('chat_messages').insertOne(message);
       return { ...message };
     },
+    updateOne: async (id, updates) => {
+      const db = await getDB();
+      const { _id, ...cleanUpdates } = updates || {};
+      const result = await db.collection('chat_messages').updateOne(
+        { id },
+        { $set: cleanUpdates }
+      );
+      return result.modifiedCount > 0;
+    },
+    deleteOne: async (id) => {
+      const db = await getDB();
+      const result = await db.collection('chat_messages').deleteOne({ id });
+      return result.deletedCount > 0;
+    },
   },
 
   tutorProfileRequests: {

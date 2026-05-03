@@ -5,7 +5,17 @@ import { Platform } from 'react-native';
 function getApiUrl() {
   // Prefer EXPO_PUBLIC_API_URL (e.g. http://192.168.1.10:3001)
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) return envUrl.replace(/\/+$/, '');
+  if (envUrl) {
+    let url = String(envUrl).trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = `https://${url}`;
+    }
+    url = url.replace(/\/+$/, '');
+    if (url.endsWith('/api')) {
+      url = url.slice(0, -4);
+    }
+    return url;
+  }
 
   // Expo dev: Constants.expoConfig?.hostUri may look like "192.168.1.10:8081"
   const hostUri =
@@ -33,8 +43,8 @@ let socketToken = null;
 export function getSocket(token) {
   if (!token) return null;
 
-  // Reuse an already-connected socket for the same token
-  if (socket && socket.connected && socketToken === token) return socket;
+  // Reuse socket for the same token
+  if (socket && socketToken === token) return socket;
 
   // If token changed, reset socket
   if (socket && socketToken !== token) {

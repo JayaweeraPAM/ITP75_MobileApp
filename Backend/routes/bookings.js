@@ -39,15 +39,23 @@ bookingsRouter.post('/', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Tutor not found' });
     }
 
+    const dt = dateTime ? new Date(dateTime) : null;
+    let fallbackDate = '';
+    let fallbackTime = '';
+    if (dt && !isNaN(dt.getTime())) {
+      fallbackDate = dt.toISOString().split('T')[0];
+      fallbackTime = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
     const booking = {
       id: uuidv4(),
       studentId: req.user.id,
       tutorId,
       subject: subject || 'General',
       grade: grade || '',
-      preferredDate: preferredDate || '',
-      preferredTime: preferredTime || '',
-      duration: duration || '',
+      preferredDate: preferredDate || fallbackDate,
+      preferredTime: preferredTime || fallbackTime,
+      duration: duration || '1 hour',
       notes: notes || '',
       classType: classType || 'Individual',
       classFormat: classFormat || 'Online',
@@ -109,13 +117,21 @@ bookingsRouter.put('/:id', authMiddleware, async (req, res) => {
     if (!nextSubject) return res.status(400).json({ error: 'subject is required' });
     if (!nextDateTime) return res.status(400).json({ error: 'dateTime is required' });
 
+    const dt = nextDateTime ? new Date(nextDateTime) : null;
+    let fallbackDate = '';
+    let fallbackTime = '';
+    if (dt && !isNaN(dt.getTime())) {
+      fallbackDate = dt.toISOString().split('T')[0];
+      fallbackTime = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
     allBookings[index] = {
       ...booking,
       subject: nextSubject,
-      grade: (grade ?? booking.grade ?? '').toString(),
-      preferredDate: (preferredDate ?? booking.preferredDate ?? '').toString(),
-      preferredTime: (preferredTime ?? booking.preferredTime ?? '').toString(),
-      duration: (duration ?? booking.duration ?? '').toString(),
+      grade: grade ?? booking.grade ?? '',
+      preferredDate: preferredDate || (dateTime ? fallbackDate : booking.preferredDate || fallbackDate),
+      preferredTime: preferredTime || (dateTime ? fallbackTime : booking.preferredTime || fallbackTime),
+      duration: duration || booking.duration || '1 hour',
       notes: (notes ?? booking.notes ?? '').toString(),
       classType: (classType ?? booking.classType ?? '').toString(),
       classFormat: (classFormat ?? booking.classFormat ?? '').toString(),
@@ -143,6 +159,15 @@ bookingsRouter.get('/student', authMiddleware, async (req, res) => {
     const allTutors = await store.tutors.get() || [];
     const withNames = bookings.map(b => {
       const tutor = users.find(u => u.id === b.tutorId);
+
+      const dt = b.dateTime ? new Date(b.dateTime) : null;
+      let fallbackDate = '';
+      let fallbackTime = '';
+      if (dt && !isNaN(dt.getTime())) {
+        fallbackDate = dt.toISOString().split('T')[0];
+        fallbackTime = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+
       // Always try current tutor profile first for meeting link (overrides stale/bad stored links)
       let meetingLink = '';
       if (b.classFormat === 'Online' && b.paymentStatus === 'PAID') {
@@ -158,7 +183,14 @@ bookingsRouter.get('/student', authMiddleware, async (req, res) => {
         // Don't use broken fallback URLs
         if (meetingLink === 'https://meet.google.com/new') meetingLink = '';
       }
-      return { ...b, meetingLink, tutorName: tutor ? tutor.fullName : 'Unknown Tutor' };
+      return {
+        ...b,
+        preferredDate: b.preferredDate || fallbackDate,
+        preferredTime: b.preferredTime || fallbackTime,
+        duration: b.duration || '1 hour',
+        meetingLink,
+        tutorName: tutor ? tutor.fullName : 'Unknown Tutor'
+      };
     });
 
     res.json({ bookings: withNames });
@@ -179,8 +211,20 @@ bookingsRouter.get('/tutor', authMiddleware, async (req, res) => {
     const users = await store.users.get();
     const withNames = bookings.map(b => {
       const student = users.find(u => u.id === b.studentId);
+
+      const dt = b.dateTime ? new Date(b.dateTime) : null;
+      let fallbackDate = '';
+      let fallbackTime = '';
+      if (dt && !isNaN(dt.getTime())) {
+        fallbackDate = dt.toISOString().split('T')[0];
+        fallbackTime = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+
       return { 
         ...b, 
+        preferredDate: b.preferredDate || fallbackDate,
+        preferredTime: b.preferredTime || fallbackTime,
+        duration: b.duration || '1 hour',
         studentName: student ? student.fullName : 'Unknown Student',
         studentDetails: student ? {
           age: student.age,
