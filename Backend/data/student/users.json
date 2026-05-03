@@ -1,0 +1,32 @@
+[
+  {
+    "id": "62416a83-9fd2-40f8-b3df-07d50b9e0b0c",
+    "email": "hima@gmail.com",
+    "passwordHash": "$2a$10$M6bFya5rZG.YMOa8fs1v2u1f6y9ju76sN8c87elc7oeHbjo1Nm9S2",
+    "fullName": "Himahansi",
+    "role": "student",
+    "contactNumber": "07115466656",
+    "grade": "A/L",
+    "age": 15,
+    "parentName": "Tedt ",
+    "parentContact": "0711546656",
+    "createdAt": "2026-05-01T17:22:56.396Z",
+    "photoUrl": "",
+    "updatedAt": "2026-05-01T17:37:06.347Z",
+    "_id": "69f4e170e5dd6722eabae523"
+  },
+  {
+    "id": "1f5197bc-d88a-47fd-ba05-6ea440c805e5",
+    "email": "methvanjayaweera@gmail.com",
+    "passwordHash": "$2a$10$bZwWa.RQqlepIrx6La1n..Pj1hWbQ5G9.A5XHzILIz1c5b8evRUWS",
+    "fullName": "Methvan",
+    "role": "student",
+    "contactNumber": "0711546656",
+    "grade": "A/L",
+    "age": 15,
+    "parentName": "Test",
+    "parentContact": "0711546656",
+    "createdAt": "2026-05-01T17:31:35.102Z",
+    "_id": "69f4e377e5dd6722eabae524"
+  }
+]
