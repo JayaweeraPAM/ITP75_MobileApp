@@ -231,11 +231,151 @@ async function createIndexes(database) {
   }
 }
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let inMemoryFallbackInstance = null;
+let useInMemoryFallback = false;
+
+async function populateInMemoryFromJSON(inMemoryDB) {
+  try {
+    const jsonDir = path.join(__dirname, '..', 'data', 'json');
+    if (!fs.existsSync(jsonDir)) return;
+    const files = fs.readdirSync(jsonDir);
+    for (const f of files) {
+      if (f.endsWith('.json')) {
+        const collectionName = path.basename(f, '.json');
+        try {
+          const content = fs.readFileSync(path.join(jsonDir, f), 'utf-8');
+          const data = JSON.parse(content);
+          if (Array.isArray(data)) {
+            inMemoryDB.collections[collectionName] = data;
+          } else if (collectionName === 'subjects') {
+            inMemoryDB.collections.subjects = data;
+          } else if (collectionName === 'quizzes') {
+            inMemoryDB.collections.quizzes = data;
+          }
+        } catch (_) {}
+      }
+    }
+    console.log('✓ In-memory DB populated with fallback local data');
+  } catch (err) {
+    console.warn('Failed to populate in-memory fallback:', err.message);
+  }
+}
+
 export async function getDB() {
   if (!db) {
     throw new Error('Database not connected. Call connectDB() first.');
   }
-  return db;
+
+  if (isInMemory || useInMemoryFallback) {
+    if (!inMemoryFallbackInstance) {
+      inMemoryFallbackInstance = new InMemoryDB();
+      await populateInMemoryFromJSON(inMemoryFallbackInstance);
+    }
+    return inMemoryFallbackInstance;
+  }
+
+  return new Proxy(db, {
+    get(target, prop) {
+      if (useInMemoryFallback) {
+        if (!inMemoryFallbackInstance) {
+          inMemoryFallbackInstance = new InMemoryDB();
+          populateInMemoryFromJSON(inMemoryFallbackInstance).catch(() => {});
+        }
+        return Reflect.get(inMemoryFallbackInstance, prop, inMemoryFallbackInstance);
+      }
+
+      if (prop === 'collection') {
+        return function(collectionName) {
+          const realCollection = target.collection(collectionName);
+          if (!inMemoryFallbackInstance) {
+            inMemoryFallbackInstance = new InMemoryDB();
+            populateInMemoryFromJSON(inMemoryFallbackInstance).catch(() => {});
+          }
+          const inMemoryCollection = inMemoryFallbackInstance.collection(collectionName);
+
+          return new Proxy(realCollection, {
+            get(cTarget, cProp) {
+              if (useInMemoryFallback) {
+                return Reflect.get(inMemoryCollection, cProp, inMemoryCollection);
+              }
+
+              const val = Reflect.get(cTarget, cProp);
+              if (typeof val === 'function') {
+                if (cProp === 'find') {
+                  return function(...args) {
+                    if (useInMemoryFallback) {
+                      return inMemoryCollection.find(...args);
+                    }
+                    try {
+                      const cursor = val.apply(cTarget, args);
+                      return new Proxy(cursor, {
+                        get(cursorTarget, cursorProp) {
+                          if (useInMemoryFallback) {
+                            const fbCursor = inMemoryCollection.find(...args);
+                            return Reflect.get(fbCursor, cursorProp);
+                          }
+                          const cursorVal = Reflect.get(cursorTarget, cursorProp);
+                          if (typeof cursorVal === 'function') {
+                            return async function(...cursorArgs) {
+                              if (useInMemoryFallback) {
+                                const fbCursor = inMemoryCollection.find(...args);
+                                const fbCursorFunc = Reflect.get(fbCursor, cursorProp);
+                                return typeof fbCursorFunc === 'function' ? fbCursorFunc.apply(fbCursor, cursorArgs) : fbCursorFunc;
+                              }
+                              try {
+                                return await cursorVal.apply(cursorTarget, cursorArgs);
+                              } catch (err) {
+                                console.error(`[ResilientDB Cursor Error in find.${cursorProp}]:`, err.message);
+                                useInMemoryFallback = true;
+                                const fbCursor = inMemoryCollection.find(...args);
+                                const fbCursorFunc = Reflect.get(fbCursor, cursorProp);
+                                return typeof fbCursorFunc === 'function' ? fbCursorFunc.apply(fbCursor, cursorArgs) : fbCursorFunc;
+                              }
+                            };
+                          }
+                          return cursorVal;
+                        }
+                      });
+                    } catch (err) {
+                      console.error(`[ResilientDB Error in find]:`, err.message);
+                      useInMemoryFallback = true;
+                      return inMemoryCollection.find(...args);
+                    }
+                  };
+                }
+
+                return async function(...args) {
+                  if (useInMemoryFallback) {
+                    const fallbackFunc = Reflect.get(inMemoryCollection, cProp);
+                    return typeof fallbackFunc === 'function' ? fallbackFunc.apply(inMemoryCollection, args) : fallbackFunc;
+                  }
+                  try {
+                    return await val.apply(cTarget, args);
+                  } catch (err) {
+                    console.error(`[ResilientDB Error in ${collectionName}.${cProp}]:`, err.message);
+                    useInMemoryFallback = true;
+                    console.warn('⚠ Mongo timed out or errored. Switching to In-Memory DB!');
+                    const fbFunc = Reflect.get(inMemoryCollection, cProp);
+                    if (typeof fbFunc === 'function') {
+                      return fbFunc.apply(inMemoryCollection, args);
+                    }
+                    return fbFunc;
+                  }
+                };
+              }
+              return val;
+            }
+          });
+        };
+      }
+      return Reflect.get(target, prop);
+    }
+  });
 }
 
 export async function disconnectDB() {
@@ -248,3 +388,4 @@ export async function disconnectDB() {
     console.log('Database disconnected');
   }
 }
+

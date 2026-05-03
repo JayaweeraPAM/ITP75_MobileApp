@@ -34,7 +34,13 @@ tutorRegisterRouter.get('/search', async (req, res) => {
     }
     
     // Both approved (role=tutor) AND active subscription required
-    const validTutorIds = new Set(tutorUsers.filter(u => activeSubscriptionIds.has(u.id)).map(u => u.id));
+    let validTutorIds = new Set();
+    if (activeSubscriptionIds.size > 0) {
+      validTutorIds = new Set(tutorUsers.filter(u => activeSubscriptionIds.has(u.id)).map(u => u.id));
+    } else {
+      // Fallback: If no tutors have subscriptions yet, show all approved tutors so search isn't completely empty
+      validTutorIds = new Set(tutorUsers.map(u => u.id));
+    }
     
     let tutors = (await store.tutors.get() || []).filter((t) => validTutorIds.has(t.id));
     console.log(`[Search] Tutors in DB: ${(await store.tutors.get() || []).length}, Active/Visible tutors: ${tutors.length}`);
@@ -294,7 +300,7 @@ tutorRegisterRouter.post('/register', async (req, res) => {
       id: requestId,
       userId: id,
       submittedData,
-      status: 'APPROVED',
+      status: isInstituteManager ? 'PENDING' : 'APPROVED',
       createdAt: new Date().toISOString(),
       reviewedAt: new Date().toISOString(),
       reviewedByAdminId: 'system',
@@ -349,19 +355,18 @@ tutorRegisterRouter.get('/me/profile', async (req, res) => {
 
     // Fetch the tutor record from the tutors collection
     const tutors = await store.tutors.get() || [];
-    const t = tutors.find((x) => x.id === tutorId) ||
-              tutors.find((x) => x.userId === tutorId);
+    const t = tutors.find((x) => x && (x.id === tutorId || x.userId === tutorId));
 
     // Also fetch any profile request (approved or pending) for fallback data
     const requests = await store.tutorProfileRequests.get() || [];
     const relevantReq = requests
-      .filter((r) => r.userId === tutorId)
+      .filter((r) => r && r.userId === tutorId)
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
     const submittedData = relevantReq?.submittedData || {};
 
     // Fetch the user record for basic info
     const users = await store.users.get();
-    const tutorUser = users.find((u) => u.id === tutorId);
+    const tutorUser = users.find((u) => u && u.id === tutorId);
 
     // Build profile — prefer live tutor record over submitted data
     const profile = {

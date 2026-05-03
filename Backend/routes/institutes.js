@@ -56,15 +56,18 @@ institutesRouter.get('/manager-registrations', authMiddleware, async (req, res) 
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
     const allRequests = (await store.tutorProfileRequests.get()) || [];
+    const users = (await store.users.get()) || [];
+
     // Filter to only institute manager registrations
-    const managerReqs = allRequests.filter(r =>
-      r.submittedData?.isInstituteManager === true && r.status === 'PENDING'
-    );
+    const managerReqs = allRequests.filter(r => {
+      if (!r || r.submittedData?.isInstituteManager !== true) return false;
+      const u = users.find(u => u && u.id === r.userId);
+      return r.status === 'PENDING' || (u && u.role !== 'institute_manager');
+    });
 
     // Enrich with user data
-    const users = (await store.users.get()) || [];
     const enriched = managerReqs.map(r => {
-      const user = users.find(u => u.id === r.userId) || {};
+      const user = users.find(u => u && u.id === r.userId) || {};
       return {
         id:                   r.id,
         userId:               r.userId,

@@ -6,7 +6,7 @@
     "fullName": "thissa jana nayaka",
     "role": "tutor",
     "createdAt": "2026-05-01T16:53:58.604Z",
-    "updatedAt": "2026-05-03T18:29:37.897Z",
+    "updatedAt": "2026-05-04T11:01:14.406Z",
     "_id": "69f4daa6e5dd6722eabae509"
   },
   {
@@ -99,5 +99,77 @@
     "createdAt": "2026-05-03T18:54:29.763Z",
     "updatedAt": "2026-05-03T18:57:35.962Z",
     "_id": "69f799e53965894edc401fcd"
+  },
+  {
+    "id": "fae7beb0-1667-440f-8fd6-3e7f4e0c35f6",
+    "email": "n@gmail.com",
+    "passwordHash": "$2a$10$Fme0VohbbudxilValeqvweImhcVMz5YUS.pvtwo29s8/z3yiVMDB6",
+    "fullName": "Segeh",
+    "role": "tutor",
+    "isInstituteManager": true,
+    "instituteRegistrationNo": "Dhdvdg",
+    "instituteName": "Test",
+    "createdAt": "2026-05-04T05:24:55.948Z",
+    "_id": "69f82da793740d08563bcde1"
+  },
+  {
+    "id": "31db54ad-9a50-4234-b743-abc8e4881481",
+    "email": "1@gmail.com",
+    "passwordHash": "$2a$10$u7DZHg08nD3oKwAMsCM/SOYp.Y0AgFxPa6KWdKOe1qAf.15qSqan.",
+    "fullName": "Dft",
+    "role": "tutor",
+    "isInstituteManager": true,
+    "instituteRegistrationNo": "Fyyf",
+    "instituteName": "Test",
+    "createdAt": "2026-05-04T05:27:45.056Z",
+    "_id": "69f82e5193740d08563bcde4"
+  },
+  {
+    "id": "224de9b5-c570-4d88-a495-ff93a1a367f0",
+    "email": "111@gmail.com",
+    "passwordHash": "$2a$10$uqCshc6vyCHEH.5ataxc0e0yq2msSa1j2zz9Fg7GjZvpXGIVRqGdu",
+    "fullName": "Test",
+    "role": "tutor",
+    "isInstituteManager": true,
+    "instituteRegistrationNo": "Dbeh5",
+    "instituteName": "Testhdhe",
+    "createdAt": "2026-05-04T05:35:02.962Z",
+    "_id": "69f8300693740d08563bce25"
+  },
+  {
+    "id": "fb0c4ac2-dcdc-4a53-9c54-3a51bf6912c0",
+    "email": "iw@gmail.com",
+    "passwordHash": "$2a$10$PLpvbITPs.XyCk0ONMsAC.dSFYTFAr7uHMlhrU3TNBtw0dhjcxMtq",
+    "fullName": "Test",
+    "role": "institute_manager",
+    "isInstituteManager": true,
+    "instituteRegistrationNo": "Test",
+    "instituteName": "Test",
+    "createdAt": "2026-05-04T10:16:33.498Z",
+    "_id": "69f87201f7fd3997c250e8f8"
+  },
+  {
+    "id": "49e9cb41-a315-40ae-bfd1-b7c9877c19c1",
+    "email": "q@gmail.com",
+    "passwordHash": "$2a$10$wd0oq2eo2Ha1JNCIdcuKueBUyTz947Hcko/4002x0LTXnZZZ9K7.y",
+    "fullName": "Test",
+    "role": "institute_manager",
+    "isInstituteManager": true,
+    "instituteRegistrationNo": "Frfr838",
+    "instituteName": "Sewwandi ",
+    "createdAt": "2026-05-04T11:04:28.842Z",
+    "_id": "69f87d3c8059dbd1ae4f9669"
+  },
+  {
+    "id": "01594e75-3ca0-4511-9523-d72056666b65",
+    "email": "nim@gmail.com",
+    "passwordHash": "$2a$10$/AJLVASLHsfgVmd0U6gnRut7kiLyNb3Wvb4ghH88yUT02jcbqeciW",
+    "fullName": "Nimesha sewwandi",
+    "role": "tutor",
+    "isInstituteManager": true,
+    "instituteRegistrationNo": "123456",
+    "instituteName": "Sisulka",
+    "createdAt": "2026-05-04T11:14:05.382Z",
+    "_id": "69f87f7d8059dbd1ae4f966d"
   }
 ]

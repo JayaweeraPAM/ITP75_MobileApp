@@ -67,20 +67,22 @@ export async function getReviews(req, res) {
   }
 }
 
+
+
 export async function getTutorProfile(req, res) {
   try {
     const { tutorId } = req.params;
-    
+
     // Security check: only allow the tutor themselves or admins to fetch
     if (req.user.id !== tutorId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     const tutor = await store.tutors.getById(tutorId);
     if (!tutor) {
       return res.status(404).json({ error: 'Tutor profile not found' });
     }
-    
+
     res.json({ tutor });
   } catch (err) {
     console.error('Get tutor profile error:', err);

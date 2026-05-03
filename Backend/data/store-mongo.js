@@ -1,4 +1,5 @@
 import { getDB } from '../config/mongodb.js';
+import { ObjectId } from 'mongodb';
 
 // Helper function to handle MongoDB documents with UUID-based id fields
 function convertMongoDoc(doc) {
@@ -12,7 +13,8 @@ function convertMongoDoc(doc) {
 }
 
 function convertMongoDocs(docs) {
-  return docs.map(convertMongoDoc);
+  if (!Array.isArray(docs)) return [];
+  return docs.map(convertMongoDoc).filter(Boolean);
 }
 
 function escapeRegex(value) {

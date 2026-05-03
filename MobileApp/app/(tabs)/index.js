@@ -174,8 +174,8 @@ function TutorHome({ user }) {
   const load = async () => {
     try {
       const [earningsRes, bookingsRes, profileRes, subscriptionRes, chatRequestsRes] = await Promise.all([
-        bookingAPI.earnings(),
-        bookingAPI.getTutorBookings(),
+        bookingAPI.earnings().catch(() => ({ totalEarnings: 0, completedCount: 0, paidBookings: [] })),
+        bookingAPI.getTutorBookings().catch(() => ({ bookings: [] })),
         tutorAPI.getMyProfile().catch(() => null),
         subscriptionAPI.getByTutorId(user?.id || user?._id).catch(() => null),
         chatAPI.getTutorPendingRequests().catch(() => ({ requests: [] })),
@@ -387,7 +387,7 @@ function StudentHome({ user }) {
   const load = async () => {
     try {
       const [bookingsRes, meRes, tutorsRes] = await Promise.all([
-        bookingAPI.getStudentBookings(),
+        bookingAPI.getStudentBookings().catch(() => ({ bookings: [] })),
         usersAPI.getMe().catch(() => null),
         tutorAPI.search({}).catch(() => null)
       ]);

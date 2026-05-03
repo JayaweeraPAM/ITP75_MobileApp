@@ -244,8 +244,8 @@ app.get('/api/tutors', async (req, res) => {
     let tutors = (await store.tutors.get()).filter(
       (t) => {
         const isApproved = approvedTutorIds.has(t.id);
-        const hasActiveSubscription = activeSubscriptionIds.has(t.id);
-        if (!hasActiveSubscription) {
+        const hasActiveSubscription = activeSubscriptionIds.size === 0 || activeSubscriptionIds.has(t.id);
+        if (activeSubscriptionIds.size > 0 && !hasActiveSubscription) {
           console.log(`[Tutors API] Filtering out tutor ${t.id} (${t.fullName}) - no active subscription`);
         }
         return isApproved && hasActiveSubscription;
