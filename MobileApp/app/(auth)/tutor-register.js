@@ -21,19 +21,20 @@ import { Colors, BorderRadius, Spacing } from '../../constants/theme';
 import { GlassCard } from '../../src/components/GlassCard';
 import { PremiumBlurWrapper } from '../../src/components/PremiumBlurWrapper';
 
-export default function RegisterScreen() {
+export default function TutorRegisterScreen() {
   const [step, setStep] = useState(1);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [grade, setGrade] = useState('');
-  const [age, setAge] = useState('');
-  const [parentsName, setParentsName] = useState('');
-  const [parentsContact, setParentsContact] = useState('');
+  const [bio, setBio] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [location, setLocation] = useState('');
+  const [qualifications, setQualifications] = useState('');
+  const [subjects, setSubjects] = useState([]);
 
-  const [categoriesList, setCategoriesList] = useState([]);
-  const [isGradeModalVisible, setIsGradeModalVisible] = useState(false);
+  const [dbSubjectsList, setDbSubjectsList] = useState([]);
+  const [showSubjectsModal, setShowSubjectsModal] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
@@ -47,74 +48,80 @@ export default function RegisterScreen() {
       Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
 
-    const fetchGrades = async () => {
-      try {
-        const res = await api.get('/subjects');
-        if (res.data?.categories) {
-          const list = res.data.categories.map(c => typeof c === 'object' ? c.label || c.value : String(c));
-          setCategoriesList(list);
-        } else {
-          setCategoriesList(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Grade 13']);
-        }
-      } catch (e) {
-        setCategoriesList(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Grade 13']);
-      }
-    };
-    fetchGrades();
+    // Fetch subjects from the database via the public route
+    api.get('/subjects').then(res => {
+      const categories = res.data.categories || [];
+      const byCat = res.data.subjectsByCategory || {};
+      let list = [];
+      categories.forEach(c => {
+        const subs = byCat[c.value] || [];
+        subs.forEach(s => {
+          list.push({ label: `${c.label} - ${s}`, subject: s, category: c.value });
+        });
+      });
+      setDbSubjectsList(list);
+    }).catch((err) => {
+      console.error('Failed to load subjects on registration:', err);
+    });
   }, []);
 
-  const validatePhone = (phone) => {
-    if (!phone) return true;
-    const digits = phone.replace(/\D/g, '');
-    return digits.length >= 9 && digits.length <= 11;
-  };
-
   const handleNext = () => {
-    if (!fullName.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Missing Fields', 'Please fill in your name, email and password.');
+    if (!fullName.trim() || !email.trim() || !password.trim() || !contactNumber.trim()) {
+      Alert.alert('Missing Fields', 'Please fill in your name, email, password, and contact number.');
       return;
     }
     if (password.length < 6) {
       Alert.alert('Weak Password', 'Password must be at least 6 characters.');
       return;
     }
-    if (contactNumber.trim() && !validatePhone(contactNumber.trim())) {
-      Alert.alert('Invalid Phone', 'Please enter a valid contact number (9-11 digits).');
-      return;
-    }
     setStep(2);
   };
 
   const handleRegister = async () => {
-    if (parentsContact.trim() && !validatePhone(parentsContact.trim())) {
-      Alert.alert('Invalid Phone', 'Please enter a valid parents contact number (9-11 digits).');
+    if (!bio.trim() || !hourlyRate.trim() || !location.trim() || subjects.length === 0) {
+      Alert.alert('Missing Fields', 'Please enter your bio, hourly rate, location, and subjects.');
       return;
     }
     try {
       setIsLoading(true);
-      // Backend registers at /api/auth/register
-      const { token, user } = await authAPI.signup({
+      const { token, user } = await authAPI.registerTutor({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         password,
-        role: 'student',
-        contactNumber: contactNumber.trim() || '',
-        grade: grade.trim() || '',
-        age: age.trim() || '',
-        parentName: parentsName.trim() || '',
-        parentContact: parentsContact.trim() || '',
+        bio: bio.trim(),
+        contactPhone: contactNumber.trim(),
+        hourlyRate: parseFloat(hourlyRate) || 0,
+        location: location.trim(),
+        qualifications: qualifications.split(',').map(s => s.trim()).filter(Boolean),
+        subjects: subjects.map(s => {
+          const [category, subject] = s.split('|');
+          return { category, subject };
+        }).filter(s => s.subject),
+        classTypes: ['Online', 'Physical'],
+        classFormats: ['Individual', 'Group'],
       });
+
       if (!context) {
         throw new Error('Auth context is not ready. Please restart the app.');
       }
       await context.login(token, { ...user, name: user.fullName ?? user.name });
       router.replace('/(tabs)');
     } catch (error) {
-      const msg = error?.message || 'Could not connect to server. Check IP in .env';
-      Alert.alert('Registration Failed', msg);
+      const msg = error?.message || 'Registration failed. Check your network or try again.';
+      Alert.alert('Tutor Registration Failed', msg);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleSubjectSelection = (subjKey) => {
+    setSubjects(prev => {
+      if (prev.includes(subjKey)) {
+        return prev.filter(s => s !== subjKey);
+      } else {
+        return [...prev, subjKey];
+      }
+    });
   };
 
   const inputStyle = (f) => [styles.input, focusedField === f && styles.inputFocused];
@@ -136,7 +143,7 @@ export default function RegisterScreen() {
                   <Text style={styles.logoName}>TutorHub</Text>
                 </View>
 
-                <Text style={styles.title}>Create Account</Text>
+                <Text style={styles.title}>Tutor Application</Text>
                 <Text style={styles.subtitle}>Step {step} of 2</Text>
 
                 {step === 1 ? (
@@ -163,7 +170,7 @@ export default function RegisterScreen() {
                     />
                     <TextInput
                       style={inputStyle('pass')}
-                      placeholder="Password (min. 6 characters)"
+                      placeholder="Password"
                       placeholderTextColor="rgba(140,140,190,0.45)"
                       secureTextEntry
                       value={password}
@@ -190,50 +197,60 @@ export default function RegisterScreen() {
                   </View>
                 ) : (
                   <View style={styles.fields}>
+                    <TextInput
+                      style={[inputStyle('bio'), { height: 100, textAlignVertical: 'top' }]}
+                      placeholder="Bio / Short Description"
+                      placeholderTextColor="rgba(140,140,190,0.45)"
+                      multiline
+                      numberOfLines={4}
+                      value={bio}
+                      onChangeText={setBio}
+                      onFocus={() => setFocusedField('bio')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                    <TextInput
+                      style={inputStyle('hourlyRate')}
+                      placeholder="Hourly Rate (LKR)"
+                      placeholderTextColor="rgba(140,140,190,0.45)"
+                      keyboardType="numeric"
+                      value={hourlyRate}
+                      onChangeText={setHourlyRate}
+                      onFocus={() => setFocusedField('hourlyRate')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                    <TextInput
+                      style={inputStyle('location')}
+                      placeholder="Location"
+                      placeholderTextColor="rgba(140,140,190,0.45)"
+                      value={location}
+                      onChangeText={setLocation}
+                      onFocus={() => setFocusedField('location')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+
                     <TouchableOpacity
-                      style={[inputStyle('grade'), { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                      onPress={() => setIsGradeModalVisible(true)}
-                      activeOpacity={0.7}
+                      style={[inputStyle('subjects'), { justifyContent: 'center' }]}
+                      onPress={() => setShowSubjectsModal(true)}
+                      activeOpacity={0.85}
                     >
-                      <Text style={{ color: grade ? '#fff' : 'rgba(140,140,190,0.45)', fontSize: 16, fontWeight: '500' }}>
-                        {grade || 'Select Grade'}
+                      <Text style={{ color: subjects.length ? '#fff' : 'rgba(140,140,190,0.45)', fontSize: 16 }}>
+                        {subjects.length ? subjects.map(key => key.split('|')[1]).join(', ') : 'Select Subjects'}
                       </Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>▼</Text>
                     </TouchableOpacity>
 
                     <TextInput
-                      style={inputStyle('age')}
-                      placeholder="Age"
+                      style={inputStyle('qualifications')}
+                      placeholder="Qualifications (optional)"
                       placeholderTextColor="rgba(140,140,190,0.45)"
-                      keyboardType="numeric"
-                      value={age}
-                      onChangeText={setAge}
-                      onFocus={() => setFocusedField('age')}
-                      onBlur={() => setFocusedField(null)}
-                    />
-                    <TextInput
-                      style={inputStyle('parentsName')}
-                      placeholder="Parents Name"
-                      placeholderTextColor="rgba(140,140,190,0.45)"
-                      value={parentsName}
-                      onChangeText={setParentsName}
-                      onFocus={() => setFocusedField('parentsName')}
-                      onBlur={() => setFocusedField(null)}
-                    />
-                    <TextInput
-                      style={inputStyle('parentsContact')}
-                      placeholder="Parents Contact"
-                      placeholderTextColor="rgba(140,140,190,0.45)"
-                      keyboardType="phone-pad"
-                      value={parentsContact}
-                      onChangeText={setParentsContact}
-                      onFocus={() => setFocusedField('parentsContact')}
+                      value={qualifications}
+                      onChangeText={setQualifications}
+                      onFocus={() => setFocusedField('qualifications')}
                       onBlur={() => setFocusedField(null)}
                     />
 
                     <TouchableOpacity onPress={handleRegister} disabled={isLoading} activeOpacity={0.85}>
                       <LinearGradient colors={['#7C6FFF', '#5B50E8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
-                        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Create Student Account</Text>}
+                        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Submit Registration</Text>}
                       </LinearGradient>
                     </TouchableOpacity>
 
@@ -243,44 +260,70 @@ export default function RegisterScreen() {
                   </View>
                 )}
 
-                {/* Note about tutor registration */}
                 <View style={styles.infoBox}>
                   <Text style={styles.infoText}>
-                    🎓 Are you a tutor? Register here to connect with students.
+                    📌 Upon registration, your profile will be submitted to our administrators for approval.
                   </Text>
-                  <TouchableOpacity onPress={() => router.push('/(auth)/tutor-register')} style={[styles.ghostBtn, { marginTop: 10, borderColor: 'rgba(124,111,255,0.3)' }]} activeOpacity={0.8}>
-                    <Text style={[styles.ghostText, { color: '#A5A1FF' }]}>Register as Tutor</Text>
-                  </TouchableOpacity>
                 </View>
 
                 {step === 1 && (
                   <TouchableOpacity onPress={() => router.back()} style={styles.ghostBtn} activeOpacity={0.8}>
-                    <Text style={styles.ghostText}>Already have an account? Sign in</Text>
+                    <Text style={styles.ghostText}>Back to Sign In</Text>
                   </TouchableOpacity>
                 )}
               </GlassCard>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </LinearGradient>
 
-      {/* Grade Selector Modal */}
-      <Modal visible={isGradeModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setIsGradeModalVisible(false)} />
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Select Grade</Text>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
-              {categoriesList.map((g, idx) => (
-                <TouchableOpacity key={idx} onPress={() => { setGrade(g); setIsGradeModalVisible(false); }} style={styles.modalOption}>
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>{g}</Text>
-                  {grade === g && <View style={styles.modalCircle} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+        {/* Subjects Selector Popup */}
+        <Modal
+          visible={showSubjectsModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSubjectsModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <GlassCard style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Select Subjects</Text>
+              <Text style={styles.modalSubtitle}>Pick one or more subjects you teach</Text>
+
+              <ScrollView style={{ maxHeight: 300 }} contentContainerStyle={{ gap: 8 }}>
+                {dbSubjectsList.map((s, index) => {
+                  const subjKey = `${s.category}|${s.subject}`;
+                  const isSelected = subjects.includes(subjKey);
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => toggleSubjectSelection(subjKey)}
+                      activeOpacity={0.75}
+                      style={[
+                        styles.subjectOption,
+                        isSelected && styles.subjectOptionSelected,
+                      ]}
+                    >
+                      <Text style={[styles.subjectText, isSelected && styles.subjectTextSelected]}>
+                        {s.label}
+                      </Text>
+                      {isSelected && <Text style={{ color: '#10B981', fontWeight: 'bold' }}>✓</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <TouchableOpacity
+                onPress={() => setShowSubjectsModal(false)}
+                activeOpacity={0.85}
+                style={{ marginTop: 16 }}
+              >
+                <LinearGradient colors={['#7C6FFF', '#5B50E8']} style={styles.modalCloseBtn}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Done</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </GlassCard>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      </LinearGradient>
     </PremiumBlurWrapper>
   );
 }
@@ -372,24 +415,63 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   ghostText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: '#110D26',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+
+  // Popup Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: 'rgba(24, 20, 36, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 111, 255, 0.35)',
+    shadowColor: '#7C6FFF',
+    shadowRadius: 24,
+    shadowOpacity: 0.25,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  subjectOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    padding: 24,
-    paddingBottom: 40,
   },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: '#fff', marginBottom: 20 },
-  modalOption: {
-    paddingVertical: 16,
-    flexDirection: 'row',
+  subjectOptionSelected: {
+    backgroundColor: 'rgba(124, 111, 255, 0.15)',
+    borderColor: 'rgba(124, 111, 255, 0.45)',
+  },
+  subjectText: { color: '#fff', fontSize: 15, fontWeight: '500' },
+  subjectTextSelected: { color: '#7C6FFF', fontWeight: '700' },
+  modalCloseBtn: {
+    borderRadius: 14,
+    paddingVertical: 15,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    shadowColor: '#7C6FFF',
+    shadowRadius: 16,
+    shadowOpacity: 0.35,
   },
-  modalCircle: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#7C6FFF' },
 });

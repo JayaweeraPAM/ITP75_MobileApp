@@ -2,6 +2,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveRawApiRootUrl } from './resolveApiOrigin';
 
 function getExpoHostApiUrl() {
   const hostUri =
@@ -16,7 +17,7 @@ function getExpoHostApiUrl() {
 
 function resolveApiCandidates() {
   const list = [];
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  const envUrl = resolveRawApiRootUrl();
   if (envUrl) {
     let url = String(envUrl).trim();
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -27,6 +28,9 @@ function resolveApiCandidates() {
       url = url.slice(0, -4);
     }
     list.push(url);
+    // When an explicit envUrl is provided, return ONLY that candidate.
+    // This prevents falling back to local IP addresses and mixing backend environments.
+    return list;
   }
 
   const expoHostUrl = getExpoHostApiUrl();
@@ -44,9 +48,15 @@ const API_URL = API_CANDIDATES[0];
 const API_BASE = `${API_URL}/api`;
 const API_AUTH_FALLBACK_BASES = API_CANDIDATES.slice(1).map((url) => `${url}/api`);
 
+if (__DEV__) {
+  // eslint-disable-next-line no-console
+  console.warn('[API] base URL:', API_BASE);
+}
+
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 12000,
+  // Hosted backends (e.g. Railway) often cold-start; avoid false "offline" failures.
+  timeout: 25000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -98,7 +108,16 @@ api.interceptors.response.use(
     }
 
     if (!error?.response) {
-      return Promise.reject(new Error('Cannot reach server. Check EXPO_PUBLIC_API_URL and backend status.'));
+      const axiosMsg = typeof error?.message === 'string' ? error.message.trim() : '';
+      const code = error?.code != null ? String(error.code).trim() : '';
+      const detail = [axiosMsg, code ? `code=${code}` : ''].filter(Boolean).join(' · ');
+      return Promise.reject(
+        new Error(
+          detail.length
+            ? `Cannot reach server (${detail}). Set EXPO_PUBLIC_API_URL and run: npx expo start -c`
+            : 'Cannot reach server. Set EXPO_PUBLIC_API_URL and run: npx expo start -c'
+        )
+      );
     }
 
     const serverMsg =
@@ -147,19 +166,21 @@ async function fetchAuth(endpoint, payload) {
     const isNetworkLikeFailure =
       !err?.response || err?.code === 'ECONNABORTED' || msg.includes('network') || msg.includes('timeout');
 
-    const isAuthEndpoint = endpoint === '/auth/login' || endpoint === '/auth/register';
+    const isAuthEndpoint =
+      endpoint === '/auth/login' ||
+      endpoint === '/auth/register' ||
+      endpoint === '/tutors/register';
 
-    // Retry alternate base URLs for auth when the current base is unreachable (common on devices),
-    // or when the backend responds in a way that indicates we reached the server but the auth failed.
-    const shouldRetryAuth =
-      isAuthEndpoint && (isNetworkLikeFailure || (endpoint === '/auth/login' && msg.includes('invalid email or password')));
+    // Retry alternate base URLs only when the primary host looks unreachable — not on wrong credentials,
+    // or we may switch api.defaults.baseURL to a stale dev URL after a prod login attempt.
+    const shouldRetryAuth = isAuthEndpoint && isNetworkLikeFailure;
 
     if (!shouldRetryAuth || API_AUTH_FALLBACK_BASES.length === 0) throw err;
 
     for (const fallbackBase of API_AUTH_FALLBACK_BASES) {
       try {
         const res = await axios.post(`${fallbackBase}${endpoint}`, payload, {
-          timeout: 12000,
+          timeout: 25000,
           headers: { 'Content-Type': 'application/json' },
         });
         // If auth works on a fallback base, persist it for the rest of the session
@@ -236,6 +257,8 @@ export const subscriptionAPI = {
   pay: async (plan) => unwrapData(await api.post('/subscription/pay', { plan }), { subscription: null }),
   getByTutorId: async (tutorId) =>
     unwrapData(await api.get(`/subscription/${tutorId}`), { subscription: null }),
+  cancel: async () => unwrapData(await api.post('/subscription/cancel'), { success: false }),
+  deleteHistory: async (index) => unwrapData(await api.delete(`/subscription/history/${index}`), { success: false }),
 };
 
 export const instituteAPI = {

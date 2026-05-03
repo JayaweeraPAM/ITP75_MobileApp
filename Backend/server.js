@@ -170,8 +170,31 @@ app.use('/api/tutors', (req, res, next) => {
 // Public subjects endpoint (no auth required)
 app.get('/api/subjects', async (req, res) => {
   try {
-    const data = await store.subjects.get();
-    res.json(data || { categories: [], subjectsByCategory: {} });
+    let data = await store.subjects.get();
+    if (!data || !data.categories || data.categories.length === 0) {
+      data = {
+        categories: [
+          { label: 'O/L Grade 10-11', value: 'ol' },
+          { label: 'A/L Combined Maths', value: 'al_maths' },
+          { label: 'A/L Science', value: 'al_science' },
+          { label: 'A/L Commerce', value: 'al_commerce' },
+          { label: 'A/L Arts', value: 'al_arts' },
+          { label: 'Grade 1-5', value: 'primary' },
+          { label: 'Grade 6-9', value: 'junior' }
+        ],
+        subjectsByCategory: {
+          ol: ['Mathematics', 'Science', 'English', 'History', 'Sinhala', 'ICT'],
+          al_maths: ['Combined Mathematics', 'Physics', 'ICT', 'Chemistry'],
+          al_science: ['Biology', 'Physics', 'Chemistry', 'Agriculture'],
+          al_commerce: ['Accounting', 'Business Studies', 'Economics', 'ICT'],
+          al_arts: ['Sinhala', 'History', 'Geography', 'Political Science', 'Economics'],
+          primary: ['Mathematics', 'English', 'Environmental Studies', 'Sinhala', 'Tamil'],
+          junior: ['Mathematics', 'Science', 'English', 'History', 'Geography', 'ICT']
+        }
+      };
+      await store.subjects.set(data);
+    }
+    res.json(data);
   } catch (err) {
     console.error('Get subjects error:', err);
     res.status(500).json({ error: 'Failed to fetch subjects' });
@@ -207,7 +230,8 @@ app.get('/api/tutors', async (req, res) => {
       if (sub?.tutorId) {
         const expiresAt = new Date(sub.expiresAt);
         const now = new Date();
-        if (expiresAt > now) {
+        const active = (sub.status === 'active' || !sub.status || sub.status === 'approved') && expiresAt > now;
+        if (active) {
           activeSubscriptionIds.add(sub.tutorId);
         }
       }

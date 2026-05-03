@@ -176,7 +176,7 @@ function PremiumTabBar({ state, descriptors, navigation, isTutor, isInstitute })
 export default function TabLayout() {
   const context = useContext(AuthContext);
   const role = String(context?.user?.role ?? '').trim().toLowerCase();
-  const isTutor = role === 'tutor';
+  const isTutor = role === 'tutor' || role === 'tutor_pending';
   const isInstitute = role === 'institute_manager';
 
   return (

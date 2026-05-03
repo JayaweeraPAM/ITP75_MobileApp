@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, TextInput, Animated, Modal, ScrollView, Alert, Platform, Image, StatusBar, Linking, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PremiumBlurWrapper } from '../../src/components/PremiumBlurWrapper';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import api, { chatAPI } from '../../src/services/api';
 import { Colors } from '../../constants/theme';
 import { useContext } from 'react';
@@ -495,6 +495,7 @@ export default function SearchScreen() {
   const searchBarAnim = useRef(new Animated.Value(1)).current;
   const searchBarVisible = useRef(true);
   const lastOffsetY = useRef(0);
+  const searchSeqRef = useRef(0);
 
   useEffect(() => {
     Animated.timing(filterAnim, {
@@ -503,12 +504,16 @@ export default function SearchScreen() {
       useNativeDriver: false,
     }).start();
   }, [filtersVisible]);
+
   useEffect(() => {
+    let cancelled = false;
     const fetchMeta = async () => {
       try {
         const res = await api.get('/subjects');
-        setSubjectData(res.data);
-        setCategoriesList([{ value: 'all', label: 'All Categories' }, ...res.data.categories]);
+        if (cancelled) return;
+        const cats = Array.isArray(res.data?.categories) ? res.data.categories : [];
+        setSubjectData(res.data || null);
+        setCategoriesList([{ value: 'all', label: 'All Categories' }, ...cats]);
       }
       catch (e) {
         console.error('Failed to load subjects', e);
@@ -517,6 +522,7 @@ export default function SearchScreen() {
     const fetchInstitutes = async () => {
       try {
         const res = await api.get('/institutes');
+        if (cancelled) return;
         setInstitutes(res.data?.institutes || []);
       }
       catch (e) {
@@ -525,8 +531,68 @@ export default function SearchScreen() {
     };
     fetchMeta();
     fetchInstitutes();
-    handleSearch();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const handleSearch = useCallback(async () => {
+    const seq = ++searchSeqRef.current;
+    setLoading(true);
+    try {
+      const p = (v) => v === 'all' ? '' : v;
+      const res = await api.get('/tutors/search', {
+        params: {
+          category: p(category),
+          subject: p(subject),
+          medium: p(medium),
+          classType: p(classType),
+          classFormat: p(format),
+        }
+      });
+      let found = (res.data?.tutors ?? []).map((t) => {
+        const fullName = String(t?.fullName || t?.name || '').trim();
+        return {
+          ...t,
+          fullName: fullName.length ? fullName : undefined,
+          name: t?.name || t?.fullName,
+          subjects: Array.isArray(t?.subjects) ? t.subjects : [],
+        };
+      });
+      const mr = parseInt(minRating, 10);
+      if (!isNaN(mr)) {
+        found = found.filter((t) => (t.avgRating || 0) >= mr);
+      }
+      if (seq === searchSeqRef.current) {
+        setTutors(found);
+      }
+    }
+    catch (e) {
+      console.error('Search failed', e);
+      const msg =
+        typeof e?.message === 'string' ? e.message : '';
+      const isLikelyCanceled = msg.includes('canceled') || msg.includes('abort');
+      if (seq === searchSeqRef.current && !isLikelyCanceled) {
+        Alert.alert('Unable to load tutors', msg.trim() ? msg : 'Check your internet connection or try again in a moment.');
+      }
+      if (seq === searchSeqRef.current) {
+        setTutors([]);
+      }
+    }
+    finally {
+      if (seq === searchSeqRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [category, subject, medium, classType, format, minRating]);
+
+  useFocusEffect(
+    useCallback(() => {
+      handleSearch();
+      return undefined;
+    }, [handleSearch])
+  );
+
   useEffect(() => {
     if (!bookingTutorId || openedBookingTutorId === bookingTutorId || tutors.length === 0)
       return;
@@ -540,41 +606,6 @@ export default function SearchScreen() {
       setOpenedBookingTutorId(bookingTutorId);
     }
   }, [bookingTutorId, tutors, openedBookingTutorId]);
-  const handleSearch = async () => {
-    setLoading(true);
-    try {
-      const p = (v) => v === 'all' ? '' : v;
-      const res = await api.get('/tutors/search', {
-        params: {
-          category: p(category),
-          subject: p(subject),
-          medium: p(medium),
-          classType: p(classType),
-          classFormat: p(format),
-        }
-      });
-      let found = (res.data.tutors || []).map((t) => {
-        const fullName = String(t?.fullName || t?.name || '').trim();
-        return {
-          ...t,
-          fullName: fullName.length ? fullName : undefined,
-          name: t?.name || t?.fullName,
-          subjects: Array.isArray(t?.subjects) ? t.subjects : [],
-        };
-      });
-      const mr = parseInt(minRating);
-      if (!isNaN(mr)) {
-        found = found.filter((t) => (t.avgRating || 0) >= mr);
-      }
-      setTutors(found);
-    }
-    catch (e) {
-      console.error('Search failed', e);
-    }
-    finally {
-      setLoading(false);
-    }
-  };
   const handleClearFilters = () => {
     setCategory('all');
     setSubject('all');

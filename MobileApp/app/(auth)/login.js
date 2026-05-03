@@ -147,6 +147,10 @@ export default function LoginScreen() {
                   <Text style={styles.ghostText}>Create new account →</Text>
                 </TouchableOpacity>
 
+                <TouchableOpacity onPress={() => router.push('/(auth)/tutor-register')} style={[styles.ghostBtn, { marginTop: 10, borderColor: 'rgba(124,111,255,0.3)' }]} activeOpacity={0.8}>
+                  <Text style={[styles.ghostText, { color: '#A5A1FF' }]}>Register as Tutor 🎓</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={() => router.push('/institute-login')} style={[styles.ghostBtn, { marginTop: 10 }]} activeOpacity={0.8}>
                   <Text style={styles.ghostText}>Access Institute Portal 🏢</Text>
                 </TouchableOpacity>

@@ -311,7 +311,7 @@ function ChatScreen({ thread, myId, onBack }) {
                 ) : null
               }
               renderItem={({ item }) => {
-                const mine = item.senderId === myId;
+                const mine = item.senderId === myId || (context?.user && (item.senderId === context.user.id || item.senderId === context.user._id));
                 return (
                   <View style={[cs.msgRow, mine && cs.msgRowMine]}>
                     {!mine && (

@@ -154,6 +154,39 @@ export default function SubscriptionScreen() {
     }
   };
 
+  const handleCancel = async () => {
+    Alert.alert('Cancel Subscription', 'Are you sure you want to cancel your subscription? This will move the current plan to your subscription history.', [
+      { text: 'No', style: 'cancel' },
+      { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
+        try {
+          setSubmitting(true);
+          await subscriptionAPI.cancel();
+          await load(true);
+          Alert.alert('Success', 'Subscription cancelled successfully.');
+        } catch (err) {
+          Alert.alert('Failed', err.message || 'Failed to cancel subscription.');
+        } finally {
+          setSubmitting(false);
+        }
+      }}
+    ]);
+  };
+
+  const handleDeleteHistory = async (index) => {
+    Alert.alert('Delete History', 'Are you sure you want to delete this subscription history record? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await subscriptionAPI.deleteHistory(index);
+          await load(false);
+          Alert.alert('Success', 'History record deleted.');
+        } catch (err) {
+          Alert.alert('Failed', err.message || 'Failed to delete history record.');
+        }
+      }}
+    ]);
+  };
+
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -209,35 +242,61 @@ export default function SubscriptionScreen() {
                 {plan.key === 'annual' ? <Text style={styles.annualSavings}>{annualSavingsLabel}</Text> : null}
 
                 {plan.key === 'trial' ? (
-                  <TouchableOpacity
-                    disabled={disabled || isActive}
-                    onPress={runTrial}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={isActive ? ['rgba(34,197,94,0.15)', 'rgba(34,197,94,0.05)'] : ['#22c55e', '#16a34a']}
-                      style={[styles.btn, isActive && { borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }]}
+                  <View style={{ gap: 8 }}>
+                    <TouchableOpacity
+                      disabled={disabled || isActive}
+                      onPress={runTrial}
+                      activeOpacity={0.8}
                     >
-                      <Text style={[styles.btnText, isActive && { color: '#86efac' }]}>
-                        {isActive ? 'Already Active' : busyPlan === 'trial' ? 'Starting...' : 'Start Free Trial'}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <LinearGradient
+                        colors={isActive ? ['rgba(34,197,94,0.15)', 'rgba(34,197,94,0.05)'] : ['#22c55e', '#16a34a']}
+                        style={[styles.btn, isActive && { borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }]}
+                      >
+                        <Text style={[styles.btnText, isActive && { color: '#86efac' }]}>
+                          {isActive ? 'Already Active' : busyPlan === 'trial' ? 'Starting...' : 'Start Free Trial'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    {isActive && (
+                      <TouchableOpacity
+                        disabled={disabled}
+                        onPress={handleCancel}
+                        activeOpacity={0.8}
+                        style={[styles.btn, { backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', marginTop: 0 }]}
+                      >
+                        <Text style={[styles.btnText, { color: '#ff6b6b' }]}>Cancel Subscription</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 ) : (
-                  <TouchableOpacity
-                    disabled={disabled}
-                    onPress={() => setSelectedPlan(plan.key)}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={plan.key === 'annual' ? ['#a855f7', '#7e22ce'] : ['#6366f1', '#4f46e5']}
-                      style={[styles.btn, isActive && { borderWidth: 1, borderColor: 'rgba(168,85,247,0.5)' }]}
-                    >
-                      <Text style={[styles.btnText, isActive && { color: '#e9d5ff' }]}>
-                        {isActive ? 'Renew Plan' : `Subscribe ${plan.label}`}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                  <View style={{ gap: 8 }}>
+                    {!isActive ? (
+                      <TouchableOpacity
+                        disabled={disabled}
+                        onPress={() => setSelectedPlan(plan.key)}
+                        activeOpacity={0.8}
+                      >
+                        <LinearGradient
+                          colors={plan.key === 'annual' ? ['#a855f7', '#7e22ce'] : ['#6366f1', '#4f46e5']}
+                          style={[styles.btn, isActive && { borderWidth: 1, borderColor: 'rgba(168,85,247,0.5)' }]}
+                        >
+                          <Text style={[styles.btnText]}>
+                            Subscribe {plan.label}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        disabled={disabled}
+                        onPress={handleCancel}
+                        activeOpacity={0.8}
+                        style={[styles.btn, { backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', marginTop: 0 }]}
+                      >
+                        <Text style={[styles.btnText, { color: '#ff6b6b' }]}>Cancel Subscription</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )}
               </View>
             );

@@ -341,9 +341,10 @@ export const store = {
     },
     upsertByTutorId: async (tutorId, updates) => {
       const db = await getDB();
+      const { _id, id, ...cleanUpdates } = updates || {};
       const result = await db.collection('subscriptions').updateOne(
         { tutorId },
-        { $set: { tutorId, ...updates } },
+        { $set: { tutorId, ...cleanUpdates } },
         { upsert: true }
       );
       return result;
@@ -390,6 +391,14 @@ export const store = {
       const db = await getDB();
       const docs = await db.collection('institutes').find({}).toArray();
       return convertMongoDocs(docs);
+    },
+    set: async (data) => {
+      const db = await getDB();
+      const collection = db.collection('institutes');
+      await collection.deleteMany({});
+      if (data.length > 0) {
+        await collection.insertMany(data);
+      }
     },
     getById: async (id) => {
       const db = await getDB();

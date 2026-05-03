@@ -144,17 +144,120 @@ subscriptionRouter.get('/:tutorId', async (req, res) => {
 
     const expiresAt = new Date(sub.expiresAt);
     const now = new Date();
-    const active = expiresAt > now;
+    const active = (sub.status === 'active' || !sub.status || sub.status === 'approved') && expiresAt > now;
 
     res.json({
       subscription: {
         ...sub,
         active,
         isTrial: sub.plan === 'trial',
+        history: sub.history || []
       },
     });
   } catch (err) {
     console.error('Get subscription error:', err);
     res.status(500).json({ error: 'Failed to get subscription' });
+  }
+});
+
+// POST /api/subscription/cancel — Cancel active subscription
+subscriptionRouter.post('/cancel', authMiddleware, async (req, res) => {
+  try {
+    const tutorId = req.user.id;
+    const sub = await store.subscriptions.getByTutorId(tutorId);
+
+    const expiresAt = sub ? new Date(sub.expiresAt) : null;
+    const now = new Date();
+    const active = sub && (sub.status === 'active' || !sub.status || sub.status === 'approved') && expiresAt > now;
+
+    if (!sub || !active) {
+      return res.status(400).json({ error: 'No active subscription to cancel' });
+    }
+
+    const history = sub.history || [];
+    history.push({
+      plan: sub.plan,
+      status: 'cancelled',
+      startedAt: sub.startedAt,
+      expiresAt: sub.expiresAt,
+      cancelledAt: new Date().toISOString()
+    });
+
+    const { _id, id, ...restSub } = sub;
+    const updated = {
+      ...restSub,
+      status: 'cancelled',
+      active: false,
+      history
+    };
+
+    await store.subscriptions.upsertByTutorId(tutorId, updated);
+    res.json({ success: true, message: 'Subscription cancelled successfully' });
+  } catch (err) {
+    console.error('Cancel subscription error:', err);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// DELETE /api/subscription/history/rejected/clear — Clear rejected history items
+subscriptionRouter.delete('/history/rejected/clear', authMiddleware, async (req, res) => {
+  try {
+    const tutorId = req.user.id;
+    const sub = await store.subscriptions.getByTutorId(tutorId);
+
+    if (!sub || !sub.history) {
+      return res.json({ success: true, message: 'No history to clear' });
+    }
+
+    const updatedHistory = (sub.history || []).filter(h => {
+      const s = String(h.status || '').toLowerCase();
+      return !s.includes('reject') && !s.includes('cancel') && !s.includes('decline');
+    });
+
+    const { _id, id, ...cleanSub } = sub;
+
+    const updated = {
+      ...cleanSub,
+      history: updatedHistory
+    };
+
+    await store.subscriptions.upsertByTutorId(tutorId, updated);
+    res.json({ success: true, message: 'History cleared successfully' });
+  } catch (err) {
+    console.error('Clear history error:', err);
+    res.status(500).json({ error: 'Failed to clear history' });
+  }
+});
+
+// DELETE /api/subscription/history/:index — Delete a past history item
+subscriptionRouter.delete('/history/:index', authMiddleware, async (req, res) => {
+  try {
+    const tutorId = req.user.id;
+    const { index } = req.params;
+    const sub = await store.subscriptions.getByTutorId(tutorId);
+
+    if (!sub || !sub.history || !sub.history[index]) {
+      return res.status(404).json({ error: 'Subscription history item not found' });
+    }
+
+    // "dont delete active onces" -> we check if the item has status === 'active' (it shouldn't in history anyway)
+    if (sub.history[index].status === 'active') {
+      return res.status(400).json({ error: 'Cannot delete active subscription' });
+    }
+
+    const updatedHistory = [...sub.history];
+    updatedHistory.splice(index, 1);
+
+    const { _id, id, ...cleanSub } = sub;
+    const updated = {
+      ...cleanSub,
+      history: updatedHistory
+    };
+
+    await store.subscriptions.upsertByTutorId(tutorId, updated);
+    res.json({ success: true, message: 'Subscription history deleted successfully' });
+  } catch (err) {
+    console.error('Delete history error:', err);
+    res.status(500).json({ error: 'Failed to delete subscription history' });
   }
 });

@@ -1,10 +1,10 @@
 import { io } from 'socket.io-client';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { resolveRawApiRootUrl } from './resolveApiOrigin';
 
 function getApiUrl() {
-  // Prefer EXPO_PUBLIC_API_URL (e.g. http://192.168.1.10:3001)
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  const envUrl = resolveRawApiRootUrl();
   if (envUrl) {
     let url = String(envUrl).trim();
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -58,7 +58,8 @@ export function getSocket(token) {
   socketToken = token;
   socket = io(getSocketUrl(), {
     auth: { token },
-    transports: ['websocket'],
+    // Polling-first works through more reverse proxies/CDNs than websocket-only (common on hosted Node).
+    transports: ['polling', 'websocket'],
     autoConnect: true,
     reconnection: true,
   });

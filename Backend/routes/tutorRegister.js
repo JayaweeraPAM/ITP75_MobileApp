@@ -247,7 +247,7 @@ tutorRegisterRouter.post('/register', async (req, res) => {
       email: normalizedEmail,
       passwordHash,
       fullName: displayName,
-      role: 'tutor_pending',
+      role: 'tutor',
       // Store institute manager flag on the user record for admin visibility
       ...(isInstituteManager && {
         isInstituteManager: true,
@@ -294,17 +294,38 @@ tutorRegisterRouter.post('/register', async (req, res) => {
       id: requestId,
       userId: id,
       submittedData,
-      status: 'PENDING',
+      status: 'APPROVED',
       createdAt: new Date().toISOString(),
-      reviewedAt: null,
-      reviewedByAdminId: null,
+      reviewedAt: new Date().toISOString(),
+      reviewedByAdminId: 'system',
       rejectionReason: null,
     });
     await store.tutorProfileRequests.set(requests);
 
+    // Create tutor record directly in database
+    const tutorData = {
+      id,
+      userId: id,
+      fullName: displayName,
+      subjects: Array.isArray(subjects) ? subjects : [],
+      classTypes: Array.isArray(classTypes) ? classTypes : [],
+      classFormats: Array.isArray(classFormats) ? classFormats : [],
+      bio: bio || '',
+      hourlyRate: typeof hourlyRate === 'number' ? hourlyRate : parseFloat(hourlyRate) || 0,
+      photoUrl: photo || photoUrl || '',
+      location: location || instituteLocation || '',
+      contactPhone: contactPhone || '',
+      timetable: timetable || '',
+      qualifications: Array.isArray(qualifications) ? qualifications : [],
+      introVideoUrl: typeof introVideoUrl === 'string' ? introVideoUrl : '',
+      meetingLink: '',
+      instituteId: 'none',
+    };
+    await store.tutors.insertOne(tutorData);
+
     const token = signToken({ id, email: newUser.email, role: newUser.role }, '7d');
     res.status(201).json({
-      message: 'Submitted for admin approval',
+      message: 'Tutor registered successfully',
       userId: id,
       requestId,
       token,

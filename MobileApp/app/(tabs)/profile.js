@@ -117,6 +117,21 @@ function StudentProfile({ user, profileData, setProfileData }) {
       { text: 'Sign Out', style: 'destructive', onPress: async () => { await (context === null || context === void 0 ? void 0 : context.logout()); router.replace('/(auth)/login'); } },
     ]);
   };
+  const handleDeleteAccount = () => {
+    Alert.alert('Delete Account', 'Are you sure you want to delete your account? This action is permanent and cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete Account', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete('/users/me');
+          await (context === null || context === void 0 ? void 0 : context.logout());
+          Alert.alert('Deleted', 'Your account has been deleted successfully.');
+          router.replace('/(auth)/login');
+        } catch (e) {
+          Alert.alert('Failed', 'Failed to delete your account. Please try again.');
+        }
+      }},
+    ]);
+  };
   return (<>
     {/* Hero */}
     <View style={styles.hero}>
@@ -179,7 +194,8 @@ function StudentProfile({ user, profileData, setProfileData }) {
         { icon: '📋', label: 'My Bookings', sub: 'View all sessions', onPress: () => router.push('/bookings') },
         { icon: '✏️', label: 'Edit Profile', sub: 'Update info & photo', onPress: () => setEditing(true) },
         { icon: '🏫', label: 'Institutes', sub: 'Browse and join institutes', onPress: () => router.push('/institutes') },
-        { icon: '🚪', label: 'Sign Out', sub: 'Sign out of your account', onPress: handleLogout, destructive: true },
+        { icon: '🚪', label: 'Sign Out', sub: 'Sign out of your account', onPress: handleLogout },
+        { icon: '⚠️', label: 'Delete Account', sub: 'Permanently remove account', onPress: handleDeleteAccount, destructive: true },
       ].map((item, i, arr) => (
         <TouchableOpacity key={i} style={[styles.menuItem, i < arr.length - 1 && styles.menuDivider]} onPress={item.onPress} activeOpacity={0.75}>
           <View style={[styles.menuIcon, item.destructive && { backgroundColor: 'rgba(239,68,68,0.12)' }]}><Text style={{ fontSize: 16 }}>{item.icon}</Text></View>
@@ -289,7 +305,24 @@ function TutorProfile({ user }) {
   const [showSubjectsModal, setShowSubjectsModal] = useState(false);
   const [showClassTypesModal, setShowClassTypesModal] = useState(false);
   const [showClassFormatsModal, setShowClassFormatsModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [subscriptionHistory, setSubscriptionHistory] = useState([]);
   const [dbSubjectsList, setDbSubjectsList] = useState([]);
+
+  const loadSubscriptionHistory = async () => {
+    try {
+      if (user?.id) {
+        const res = await api.get(`/subscription/${user.id}`);
+        if (res && res.data && res.data.subscription) {
+          setSubscriptionHistory(res.data.subscription.history || []);
+        } else {
+          setSubscriptionHistory([]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load subscription history', err);
+    }
+  };
 
   useEffect(() => {
     api.get('/subjects').then(res => {
@@ -322,6 +355,7 @@ function TutorProfile({ user }) {
       setSubjects(t.subjects || []);
       setClassTypes(t.classTypes || []);
       setClassFormats(t.classFormats || []);
+      await loadSubscriptionHistory();
     }
     catch (e) { console.error('Failed to load profile', e); }
     finally {
@@ -386,6 +420,49 @@ function TutorProfile({ user }) {
     Alert.alert('Sign Out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: async () => { await (context === null || context === void 0 ? void 0 : context.logout()); router.replace('/(auth)/login'); } },
+    ]);
+  };
+  const handleDeleteHistory = async (index) => {
+    Alert.alert('Delete History', 'Are you sure you want to delete this subscription history record?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete(`/subscription/history/${index}`);
+          await loadSubscriptionHistory();
+          Alert.alert('Success', 'History record deleted.');
+        } catch (err) {
+          Alert.alert('Failed', 'Failed to delete history record.');
+        }
+      }}
+    ]);
+  };
+  const handleClearRejectedHistory = async () => {
+    Alert.alert('Clear History', 'Clear all rejected history records?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete('/subscription/history/rejected/clear');
+          await loadSubscriptionHistory();
+          Alert.alert('Success', 'Rejected history cleared.');
+        } catch (err) {
+          Alert.alert('Failed', 'Failed to clear history.');
+        }
+      }}
+    ]);
+  };
+  const handleDeleteAccount = () => {
+    Alert.alert('Delete Account', 'Are you sure you want to delete your account? This action is permanent and cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete Account', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete('/users/me');
+          await (context === null || context === void 0 ? void 0 : context.logout());
+          Alert.alert('Deleted', 'Your account has been deleted successfully.');
+          router.replace('/(auth)/login');
+        } catch (e) {
+          Alert.alert('Failed', 'Failed to delete your account. Please try again.');
+        }
+      }},
     ]);
   };
   if (loading)
@@ -485,8 +562,10 @@ function TutorProfile({ user }) {
         { icon: '📊', label: 'Bookings', sub: 'Bookings, earnings & sessions', onPress: () => router.push('/bookings') },
         { icon: '✏️', label: 'Edit Profile', sub: 'Bio, subjects, photo, rates', onPress: () => setEditMode(true) },
         { icon: '💎', label: 'Subscription', sub: 'Manage trial and paid plans', onPress: () => router.push('/subscription') },
+        { icon: '📜', label: 'History', sub: 'Past subscription plans', onPress: () => { loadSubscriptionHistory(); setShowHistoryModal(true); } },
         { icon: '🏫', label: 'Institutes', sub: 'Manage institute requests', onPress: () => router.push('/institutes') },
-        { icon: '🚪', label: 'Sign Out', sub: 'Sign out of your account', onPress: handleLogout, destructive: true },
+        { icon: '🚪', label: 'Sign Out', sub: 'Sign out of your account', onPress: handleLogout },
+        { icon: '⚠️', label: 'Delete Account', sub: 'Permanently remove account', onPress: handleDeleteAccount, destructive: true },
       ].map((item, i, arr) => (<TouchableOpacity key={i} style={[styles.menuItem, i < arr.length - 1 && styles.menuDivider]} onPress={item.onPress} activeOpacity={0.75}>
         <View style={[styles.menuIcon, item.destructive && { backgroundColor: 'rgba(239,68,68,0.12)' }]}><Text style={{ fontSize: 16 }}>{item.icon}</Text></View>
         <View style={styles.menuText}>
@@ -497,6 +576,66 @@ function TutorProfile({ user }) {
       </TouchableOpacity>))}
     </FrostedPanel>
     <View style={{ height: 40 }} />
+
+    {/* Subscription History Popup Modal */}
+    <Modal visible={showHistoryModal} animationType="slide" transparent>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 20 }} onPress={() => setShowHistoryModal(false)}>
+        <Pressable style={{ backgroundColor: '#0c0721', borderRadius: 28, padding: 24, borderWidth: 1, borderColor: 'rgba(124,111,255,0.22)', height: '82%', width: '100%', elevation: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.6, shadowRadius: 20, overflow: 'hidden' }} onPress={e => e.stopPropagation()}>
+          <View style={{ width: 44, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center', marginBottom: 20 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 150 }}>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: -0.5 }} numberOfLines={1}>📜 Subscription History</Text>
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>Past and active plans</Text>
+            </View>
+            {subscriptionHistory && subscriptionHistory.length > 0 && (
+              <TouchableOpacity onPress={handleClearRejectedHistory} activeOpacity={0.7} style={{ backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 }}>
+                <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '800' }}>Clear Rejected</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 6 }} contentContainerStyle={{ paddingBottom: 16 }}>
+            {subscriptionHistory && subscriptionHistory.length > 0 ? (
+              subscriptionHistory.map((h, index) => {
+                const isRejected = h.status === 'cancelled' || h.status === 'rejected' || h.status === 'declined';
+                return (
+                  <View key={index} style={{ marginBottom: 14, padding: 18, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800', textTransform: 'capitalize' }}>
+                        {h.plan} Plan
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isRejected ? 'rgba(239,68,68,0.12)' : 'rgba(52,211,153,0.12)', borderWidth: 1, borderColor: isRejected ? 'rgba(239,68,68,0.3)' : 'rgba(52,211,153,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isRejected ? '#ef4444' : '#10b981', marginRight: 6 }} />
+                        <Text style={{ color: isRejected ? '#ff6b6b' : '#34d399', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>
+                          {h.status}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 6, fontWeight: '500' }}>
+                      🗓️ {new Date(h.startedAt).toLocaleDateString()} to {new Date(h.expiresAt).toLocaleDateString()}
+                    </Text>
+
+                    <TouchableOpacity onPress={() => handleDeleteHistory(index)} activeOpacity={0.8} style={{ alignSelf: 'flex-start', marginTop: 14, backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.22)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}>
+                      <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '700' }}>Delete Record</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={{ padding: 24, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 20, marginVertical: 12 }}>
+                <Text style={{ fontSize: 28, marginBottom: 8 }}>📭</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '600' }}>No history records found.</Text>
+              </View>
+            )}
+          </ScrollView>
+          <TouchableOpacity style={{ marginTop: 8, borderRadius: 16, overflow: 'hidden' }} onPress={() => setShowHistoryModal(false)} activeOpacity={0.85}>
+            <LinearGradient colors={['#7C6FFF', '#5B50E8']} style={{ padding: 15, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.3 }}>Done</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
 
     {/* Tutor Edit Modal */}
     <Modal visible={editMode} animationType="fade" transparent>
@@ -790,6 +929,28 @@ function InstituteSettingsScreen({ user }) {
                 {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Save Changes</Text>}
               </LinearGradient>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert('Delete Account', 'Are you sure you want to delete your account? This action is permanent and cannot be undone.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete Account', style: 'destructive', onPress: async () => {
+                    try {
+                      await api.delete('/users/me');
+                      await (context === null || context === void 0 ? void 0 : context.logout());
+                      Alert.alert('Deleted', 'Your account has been deleted successfully.');
+                      router.replace('/(auth)/login');
+                    } catch (e) {
+                      Alert.alert('Failed', 'Failed to delete your account. Please try again.');
+                    }
+                  }},
+                ]);
+              }}
+              style={{ marginTop: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)', borderRadius: 14, backgroundColor: 'rgba(239,68,68,0.1)', paddingVertical: 15, alignItems: 'center' }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: '#ff6b6b', fontSize: 15, fontWeight: '700' }}>⚠️ Delete Account</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
@@ -830,7 +991,7 @@ export default function ProfileScreen() {
       <View style={styles.blob2} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         <Animated.View style={{ opacity: fadeAnim }}>
-          {role === 'tutor' ? (<TutorProfile user={user} />) : role === 'student' ? (<StudentProfile user={user} profileData={profileData} setProfileData={setProfileData} />) : (
+          {role.includes('tutor') ? (<TutorProfile user={user} />) : role === 'student' ? (<StudentProfile user={user} profileData={profileData} setProfileData={setProfileData} />) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 }}>
               <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
               <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>Access Restricted</Text>
