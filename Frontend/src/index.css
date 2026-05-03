@@ -1,0 +1,57 @@
+:root {
+  --bg-gradient: linear-gradient(135deg, #E0F2FE 0%, #F1F5F9 50%, #FAF5FF 100%);
+}
+:root.dark {
+  --bg-gradient: linear-gradient(135deg, #050814 0%, #0B1120 50%, #111827 100%);
+}
+
+body {
+  background: var(--bg-gradient) !important;
+  background-attachment: fixed !important;
+  color: #0F172A;
+  min-height: 100vh;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', 'Inter', sans-serif;
+}
+
+:root.dark body {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+#root, #root > div > div, #root > div > section, .min-h-screen, .page-enter,
+[class*="bg-[#06040f]"], [class*="bg-[#0b1120]"], [class*="bg-[#0d0d11]"], [class*="bg-[#0A0A0A]"], [class*="bg-[#0e0b20]"], [class*="bg-[#100d1f]"], [class*="bg-[#0b0914]"], [class*="bg-[#0d1a2e]"], [class*="bg-[#1a1528]"] {
+  background: transparent !important;
+}
+
+#root div.rounded-2xl, #root div.rounded-3xl, #root div.rounded-xl, #root button, #root span {
+  background: revert !important;
+}
+
+
+/* == CRITICAL: Rounded corners enforcement (overrides Tailwind preflight) == */
+
+/* rounded-full containers MUST clip child images */
+.rounded-full { overflow: hidden !important; border-radius: 9999px !important; }
+.rounded-full > img,
+.rounded-full img {
+  border-radius: 9999px !important;
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* rounded-xl / rounded-2xl / rounded-3xl */
+.rounded-xl  { border-radius: 0.75rem  !important; overflow: hidden; }
+.rounded-2xl { border-radius: 1rem     !important; overflow: hidden; }
+.rounded-3xl { border-radius: 1.5rem   !important; overflow: hidden; }
+
+/* All buttons - never sharp */
+button { border-radius: 0.875rem; }
+button.rounded-full  { border-radius: 9999px  !important; overflow: hidden; }
+button.rounded-2xl   { border-radius: 1rem    !important; }
+button.rounded-3xl   { border-radius: 1.5rem  !important; }
+button.rounded-xl    { border-radius: 0.75rem !important; }
+
+/* Inputs */
+input:not([type=checkbox]):not([type=radio]),
+select, textarea { border-radius: 0.75rem; }

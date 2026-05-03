@@ -1,0 +1,11 @@
+[
+  {
+    "id": "da24356b-4ff7-44a3-9603-37b1f49184fd",
+    "email": "admin@gmail.com",
+    "passwordHash": "$2a$10$KkyIilwysTKawTPRJO5uOOQzmsOsv3kQHKBjijzpJDxzSvU.eR52W",
+    "fullName": "Admin",
+    "role": "admin",
+    "createdAt": "2026-03-02T12:43:16.515Z",
+    "_id": "69d7fec0069f16a7166039e4"
+  }
+]
