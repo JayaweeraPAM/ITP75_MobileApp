@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-05-02T07:21:28.436Z",
+  "admins": [
+    {
+      "id": "da24356b-4ff7-44a3-9603-37b1f49184fd",
+      "email": "admin@gmail.com",
+      "passwordHash": "$2a$10$KkyIilwysTKawTPRJO5uOOQzmsOsv3kQHKBjijzpJDxzSvU.eR52W",
+      "fullName": "Admin",
+      "role": "admin",
+      "createdAt": "2026-03-02T12:43:16.515Z",
+      "_id": "69d7fec0069f16a7166039e4"
+    }
+  ],
+  "students": [
+    {
+      "id": "62416a83-9fd2-40f8-b3df-07d50b9e0b0c",
+      "email": "hima@gmail.com",
+      "passwordHash": "$2a$10$M6bFya5rZG.YMOa8fs1v2u1f6y9ju76sN8c87elc7oeHbjo1Nm9S2",
+      "fullName": "Himahansi",
+      "role": "student",
+      "contactNumber": "07115466656",
+      "grade": "A/L",
+      "age": 15,
+      "parentName": "Tedt ",
+      "parentContact": "0711546656",
+      "createdAt": "2026-05-01T17:22:56.396Z",
+      "photoUrl": "",
+      "updatedAt": "2026-05-01T17:37:06.347Z",
+      "_id": "69f4e170e5dd6722eabae523"
+    },
+    {
+      "id": "1f5197bc-d88a-47fd-ba05-6ea440c805e5",
+      "email": "methvanjayaweera@gmail.com",
+      "passwordHash": "$2a$10$bZwWa.RQqlepIrx6La1n..Pj1hWbQ5G9.A5XHzILIz1c5b8evRUWS",
+      "fullName": "Methvan",
+      "role": "student",
+      "contactNumber": "0711546656",
+      "grade": "A/L",
+      "age": 15,
+      "parentName": "Test",
+      "parentContact": "0711546656",
+      "createdAt": "2026-05-01T17:31:35.102Z",
+      "_id": "69f4e377e5dd6722eabae524"
+    }
+  ],
+  "tutors": [
+    {
+      "id": "468f7b29-3018-4596-9815-4bd74850c1d1",
+      "email": "s@gmail.com",
+      "passwordHash": "$2a$10$wyatz0ktBTJLuE1AdJaOcuWgTPW1qCqa8zQCe76sBzIHyMzdbNnnO",
+      "fullName": "thissa jana nayaka",
+      "role": "tutor",
+      "createdAt": "2026-05-01T16:53:58.604Z",
+      "updatedAt": "2026-05-02T07:10:59.932Z",
+      "_id": "69f4daa6e5dd6722eabae509"
+    },
+    {
+      "id": "4c44e898-e0cc-497e-b224-69387856dfef",
+      "email": "prasanna@gmail.com",
+      "passwordHash": "$2a$10$DYm5mPCqeX6sb.lJeUD1UOUPQBiGbKS8z7Q15n7kXE3e8vyrVfT8u",
+      "fullName": "prasanna baddewithana",
+      "role": "tutor",
+      "createdAt": "2026-05-01T16:55:21.830Z",
+      "updatedAt": "2026-05-01T17:14:13.934Z",
+      "_id": "69f4daf9e5dd6722eabae50b"
+    },
+    {
+      "id": "47b218d4-2dc2-4cec-9c09-de0d2d28e0a1",
+      "email": "sasip@gmail.com",
+      "passwordHash": "$2a$10$78208xgK3abQIOXi82KIWer6yia.kT4jcKzMEdwNURH3Dekn1DDvO",
+      "fullName": "Dr. Amith Pussella",
+      "role": "institute_manager",
+      "isInstituteManager": true,
+      "instituteRegistrationNo": "ed/2024",
+      "instituteName": "Sasip Institute",
+      "createdAt": "2026-05-01T17:05:54.186Z",
+      "_id": "69f4dd72e5dd6722eabae513"
+    },
+    {
+      "id": "0bce5c30-a4db-43ed-bf8c-51e8edfea4ae",
+      "email": "ruwan@gmail.com",
+      "passwordHash": "$2a$10$eKPOTBS.bDrUll55NiYyW.XG0CuhLbjPwHkcWVexXVmI1vagDsfRS",
+      "fullName": "Ruwan Darshana",
+      "role": "tutor",
+      "createdAt": "2026-05-01T17:17:23.814Z",
+      "updatedAt": "2026-05-01T17:19:45.933Z",
+      "_id": "69f4e023e5dd6722eabae51a"
+    },
+    {
+      "id": "a42acd05-bdc8-4989-bb5f-47153b9d1116",
+      "email": "anurada@gmail.com",
+      "passwordHash": "$2a$10$PDsAceM7LOPTrpUwQpst1ewMBMdLRuHHgkRvHAjWFsNJ0nR1J4u56",
+      "fullName": "anurada",
+      "role": "tutor",
+      "createdAt": "2026-05-01T17:18:55.061Z",
+      "updatedAt": "2026-05-01T18:38:53.422Z",
+      "_id": "69f4e07fe5dd6722eabae51c"
+    },
+    {
+      "id": "4e92c043-c22f-4778-a6cb-0291556e271f",
+      "email": "charitha@gmail.com",
+      "passwordHash": "$2a$10$Eu/ne0wbVPxLUvl3WBP79.0ZGad2q3TGGNjNtzF9tUuTihABpIWLO",
+      "fullName": "charitha dissanayake",
+      "role": "tutor",
+      "createdAt": "2026-05-01T18:10:29.012Z",
+      "_id": "69f4ec95e5dd6722eabae52f"
+    }
+  ]
+}

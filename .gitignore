@@ -1,0 +1,5 @@
+node_modules
+*.rar
+*.zip
+node_modules/
+.env
